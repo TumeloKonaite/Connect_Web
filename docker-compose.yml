@@ -1,0 +1,75 @@
+name: ${COMPOSE_PROJECT_NAME:-connect-web}
+
+services:
+  frontend:
+    container_name: connect-web-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app
+
+  backend:
+    container_name: connect-web-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME:-Connect Web API}
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173","http://127.0.0.1:5173"]}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-connect_web}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-connect_web}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-connect_web}
+      DB_USER: ${POSTGRES_USER:-connect_web}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app
+
+  db:
+    container_name: connect-web-db
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-connect_web}
+      POSTGRES_USER: ${POSTGRES_USER:-connect_web}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - app
+
+networks:
+  app:
+    name: connect-web-network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: connect-web-postgres-data
