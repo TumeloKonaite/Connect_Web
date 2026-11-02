@@ -1,6 +1,27 @@
+# Local environment files. Keep safe templates tracked.
 .env
 .env.*
 !.env.example
+!*/.env.example
+
+# Dependencies, virtual environments, caches, and build output.
+node_modules/
+frontend/node_modules/
+backend/.venv/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.vite/
+.DS_Store
 frontend/node_modules/
 frontend/dist/
 backend/.venv/
