@@ -17,7 +17,15 @@ async function request<T>(
   })
 
   if (!response.ok) {
-    throw new Error(`API request failed (${response.status} ${response.statusText})`)
+    let message = `Request failed (${response.status} ${response.statusText})`
+    try {
+      const payload = (await response.json()) as { detail?: unknown }
+      if (typeof payload.detail === 'string') message = payload.detail
+      else if (Array.isArray(payload.detail)) {
+        message = payload.detail.map((item) => typeof item === 'object' && item && 'msg' in item ? String(item.msg) : String(item)).join('; ')
+      }
+    } catch { /* Keep the HTTP status message when the response has no JSON body. */ }
+    throw new Error(message)
   }
 
   if (response.status === 204) return undefined as T
@@ -26,7 +34,9 @@ async function request<T>(
 
 export const api = {
   getHealth: (signal?: AbortSignal) => request<HealthResponse>('/api/health', { signal }),
-  getMachines: (signal?: AbortSignal) => request<MachineRecord[]>('/api/machines', { signal }),
+  getMachines: (limit = 25, offset = 0, signal?: AbortSignal) =>
+    request<MachineRecord[]>(`/api/machines?limit=${limit}&offset=${offset}`, { signal }),
+  getMachine: (udi: number) => request<MachineRecord>(`/api/machines/${udi}`),
   createMachine: (record: MachineRecordInput) =>
     request<MachineRecord>('/api/machines', { method: 'POST', body: record }),
   updateMachine: (udi: number, changes: Partial<MachineRecordInput>) =>
