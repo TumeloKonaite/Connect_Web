@@ -1,4 +1,5 @@
 import { ApiStatus } from '../components/status/ApiStatus'
+import { MachineRecords } from '../components/machines/MachineRecords'
 import { useApiHealth } from '../hooks/useApiHealth'
 
 export function DashboardPage() {
@@ -59,6 +60,7 @@ export function DashboardPage() {
           <span className="empty-arrow" aria-hidden="true">↗</span>
         </article>
       </section>
+      <MachineRecords />
     </>
   )
 }

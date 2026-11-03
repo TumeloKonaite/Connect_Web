@@ -47,7 +47,7 @@ test: ## Run backend and frontend test targets
 	@$(MAKE) --no-print-directory test-frontend
 
 test-backend: ## Run backend pytest suite in a temporary test container
-	@$(COMPOSE) run --rm --build --no-deps -w /app backend sh -c 'uv sync --frozen && uv run --no-sync pytest' || { echo "Error: Backend tests failed. Ensure Docker is running and backend dependencies can be installed." >&2; exit 1; }
+	@$(COMPOSE) run --rm --build --no-deps -v "$(CURDIR)/backend/tests:/app/tests:ro" -w /app backend sh -c 'uv sync --frozen && uv run --no-sync pytest /app/tests' || { echo "Error: Backend tests failed. Ensure Docker is running and backend dependencies can be installed." >&2; exit 1; }
 
 test-frontend: ## Run frontend tests if a test script is configured
 	@$(COMPOSE) run --rm --no-deps frontend sh -c 'node -e '\''const p = require("./package.json"); if (!p.scripts || !p.scripts.test) { console.error("Error: No frontend test runner is configured in frontend/package.json."); process.exit(2); }'\'' && npm test -- --run' || { echo "Error: Frontend tests failed. Check the frontend test runner and Docker configuration." >&2; exit 1; }
