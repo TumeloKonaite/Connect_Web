@@ -1,0 +1,6 @@
+udi,product_id,type,air_temperature,process_temperature,rotational_speed,torque,tool_wear,machine_failure,twf,hdf,pwf,osf,rnf
+1,M14860,M,298.1,308.6,1551,42.8,0,false,false,false,false,false,false
+2,L47181,L,298.2,308.7,1408,46.3,3,false,false,false,false,false,false
+3,H29424,H,298.1,308.5,1498,49.4,5,false,false,false,false,false,false
+4,M11758,M,298.2,308.6,1433,39.5,7,false,false,false,false,false,false
+5,L56906,L,298.2,308.7,1408,40.0,9,false,false,false,false,false,false

@@ -4,7 +4,8 @@ COMPOSE = docker compose -f $(CURDIR)/docker-compose.yml -p $(COMPOSE_PROJECT_NA
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps backend-logs frontend-logs db-logs \
-	backend-shell frontend-shell test test-backend test-frontend clean clean-data
+	backend-shell frontend-shell test test-backend test-frontend seed clean clean-data
+
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; print "Usage: make <target>\n\nTargets:"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -48,6 +49,9 @@ test: ## Run backend and frontend test targets
 
 test-backend: ## Run backend pytest suite in a temporary test container
 	@$(COMPOSE) run --rm --build --no-deps -v "$(CURDIR)/backend/tests:/app/tests:ro" -w /app backend sh -c 'uv sync --frozen && uv run --no-sync pytest /app/tests' || { echo "Error: Backend tests failed. Ensure Docker is running and backend dependencies can be installed." >&2; exit 1; }
+
+seed: ## Import the bundled machine CSV into PostgreSQL (idempotent)
+	@$(COMPOSE) exec backend uv run --no-sync python -m app.seed || { echo "Error: Could not seed machine records. Start services with 'make up' and check migrations and database connectivity." >&2; exit 1; }
 
 test-frontend: ## Run frontend tests if a test script is configured
 	@$(COMPOSE) run --rm --no-deps frontend sh -c 'node -e '\''const p = require("./package.json"); if (!p.scripts || !p.scripts.test) { console.error("Error: No frontend test runner is configured in frontend/package.json."); process.exit(2); }'\'' && npm test -- --run' || { echo "Error: Frontend tests failed. Check the frontend test runner and Docker configuration." >&2; exit 1; }

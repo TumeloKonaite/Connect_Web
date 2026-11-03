@@ -26,6 +26,23 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 - **Docker Compose:** builds the frontend and backend images, starts PostgreSQL, waits for database and API health checks before starting dependent services, and provides internal DNS names such as `backend` and `db`.
 - **Make:** provides consistent commands for common Compose operations.
 
+## Seed sample machine records
+
+The repository includes a representative 14-column dataset at `backend/data/machine_records.csv`. The backend image contains this file and the standalone importer at `backend/app/seed.py` maps each CSV column directly to its matching `MachineRecord` field.
+
+Start PostgreSQL and the application services, then ensure migrations are current (the backend startup runs `alembic upgrade head` automatically):
+
+```sh
+make up
+make seed
+```
+
+`make seed` runs the importer inside the running backend container and prints processed, inserted, duplicate, invalid, and failed counts. Verify records in the API at <http://localhost:8000/api/machines> or in Swagger at <http://localhost:8000/docs>.
+
+The import uses `udi` as its idempotency key. A row with a UDI already in the database is reported as a duplicate and left unchanged. Missing values, malformed numbers or booleans, unsupported types, and values that violate model constraints are reported as invalid and skipped. Each valid row commits independently; a database error rolls back only that row and later rows continue. A missing required CSV header stops the import with an actionable error. Re-running `make seed` is safe and does not overwrite development records.
+
+The prerequisites are Docker with Compose v2, a running database service, and the current Alembic migrations. `make up` starts the database and applies migrations through the backend entry command; if services were stopped, start them before running the seed target.
+
 ## Prerequisites
 
 - Git
@@ -119,6 +136,7 @@ Run these commands from the repository root:
 | `make restart` | Restart running containers | No |
 | `make logs` | Follow logs from all services; press Ctrl+C to stop following | No |
 | `make ps` | Show Compose service and container status | No |
+| `make seed` | Import sample CSV into PostgreSQL; duplicate UDIs remain unchanged | No |
 
 Equivalent direct Compose commands are available if needed, for example `docker compose logs -f backend` or `docker compose exec backend sh`.
 
@@ -160,6 +178,7 @@ make db-logs         # Follow PostgreSQL logs
 make backend-shell   # Open a shell in the running backend container
 make frontend-shell  # Open a shell in the running frontend container
 make test-backend    # Install backend dev dependencies and run pytest in Docker
+make seed            # Import sample manufacturing machine records
 make test-frontend   # Run the configured frontend test script in Docker
 make test            # Run backend and frontend tests
 make clean           # Remove stopped containers and networks; preserve data
