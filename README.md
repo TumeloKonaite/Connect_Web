@@ -9,8 +9,8 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 ├── backend/                 FastAPI application, Python dependencies, tests, Dockerfile
 │   ├── app/api/routes/      HTTP routes, including GET /health
 │   └── tests/               Backend tests
-├── frontend/                React + TypeScript + Vite application and Dockerfile
-│   └── src/                  UI, API client, and health status hook
+├── frontend/                React + TypeScript + Vite application, API client, and Dockerfile
+│   └── src/                  Machine records page, forms, table, and API status
 ├── docker-compose.yml        Frontend, backend, database, network, and volume
 ├── Makefile                  Shortcuts for Docker Compose commands
 ├── .env.example              Safe template for local configuration
@@ -122,7 +122,15 @@ Example create request body:
 
 The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. Run it with `make test-backend`.
 
-The frontend calls `/api/machines` for machine data. Vite forwards these paths unchanged to `backend:8000` on the Compose network; it maps `/api/health` to the backend's `/health` route for the health indicator. For local development outside Compose, set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` and allow that origin in `CORS_ORIGINS`.
+The machine records page calls `/api/machines` for data and `/api/machines/{udi}` for individual records. It requests 25 records at a time with the FastAPI `limit` and `offset` parameters. Vite forwards API paths to `backend:8000` on the Compose network and maps `/api/health` to `/health` for the health indicator. For local development outside Compose, set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` and allow that origin in `CORS_ORIGINS`.
+
+## Machine records interface
+
+Start the integrated application with `make up`, then open <http://localhost:5173>. Use **Add Machine Record** to create a record, **View** to inspect every measurement and failure indicator, **Edit** to update a record while keeping its UDI fixed, and **Delete** to remove it after browser confirmation. The table is ordered by UDI and uses Previous/Next controls to load backend pages. Validation errors and API responses appear above the record controls. To load the sample records, run `make seed`.
+
+The page is responsive: the table can scroll horizontally on narrow screens, while the record form and detail view reflow to fit.
+
+To capture the current interface for documentation, run the stack, open <http://localhost:5173>, and save a browser screenshot as `docs/machine-records.png`.
 
 ## Makefile commands
 
@@ -159,37 +167,6 @@ npm run dev
 
 Backend (terminal 2, from repository root):
 
-## Makefile commands
-
-Prerequisites: GNU Make and Docker with the Docker Compose v2 plugin must be installed, and the Docker daemon must be running. Run these commands from the repository root. The Makefile calls the root `docker-compose.yml` directly and uses the Compose project name `connect-web` by default; set `COMPOSE_PROJECT_NAME` to use another project name.
-
-Run `make` or `make help` to list available commands:
-
-```sh
-make build          # Build all service images
-make up             # Build and start all services in the background
-make down           # Stop and remove containers; preserve PostgreSQL data
-make restart        # Restart running services
-make logs           # Follow logs from all services
-make ps             # Show service/container status
-make backend-logs    # Follow FastAPI logs
-make frontend-logs   # Follow React/Vite logs
-make db-logs         # Follow PostgreSQL logs
-make backend-shell   # Open a shell in the running backend container
-make frontend-shell  # Open a shell in the running frontend container
-make test-backend    # Install backend dev dependencies and run pytest in Docker
-make seed            # Import sample manufacturing machine records
-make test-frontend   # Run the configured frontend test script in Docker
-make test            # Run backend and frontend tests
-make clean           # Remove stopped containers and networks; preserve data
-make clean-data      # DESTRUCTIVE: also remove the PostgreSQL data volume
-```
-
-Recommended workflow: copy `.env.example` to `.env`, then use `make up`; use `make logs` or the service-specific log targets to troubleshoot, and `make down` when finished. Pressing Ctrl-C while following logs stops the log command only; Compose may report exit code 130 because it received an interrupt, and the services continue running. The `postgres_data` volume survives `make down` and `make clean`, so the database persists across routine stop/start cycles. `make clean-data` removes this volume and permanently deletes its contents.
-
-The `make backend-shell` and `make frontend-shell` targets open a POSIX `sh` prompt in the selected container. Type `exit` or press Ctrl-D to leave it. The `\\q` command is for the PostgreSQL `psql` prompt, not a shell.
-
-Backend tests use pytest installed from the backend development dependency group in a temporary Compose container. The frontend package currently has no `test` script or configured test runner. Consequently, `make test-frontend` reports this setup gap and exits with an error until a frontend test runner and script are added; `make test` propagates that result after running backend tests.
 ```sh
 cd backend
 uv sync
@@ -200,13 +177,15 @@ When running services on the host, the Compose-only Vite proxy target `backend` 
 
 ## Tests and diagnostics
 
-The Makefile does not define a test target. Run the available tests from the service directories:
+Run the available checks from the service directories:
 
 ```sh
 cd backend && uv run --group dev pytest
 cd frontend && npm run lint
 cd frontend && npm run build
 ```
+
+The frontend package does not yet include a UI test runner, so `make test-frontend` cannot run interaction tests until one is configured.
 
 Useful checks and container shell access:
 
@@ -232,4 +211,4 @@ The `psql` command uses variables from the current shell; alternatively run `doc
 
 ## Validation status
 
-Use `docker compose config --quiet` to validate Compose syntax, `make build` to build images, and `make up`, `make ps`, and the URLs above to validate a running stack. The frontend health indicator provides an end-to-end browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query. A screenshot can be captured locally after startup from the frontend page and included in project documentation if needed.
+Use `docker compose config --quiet` to validate Compose syntax, `make build` to build images, and `make up`, `make ps`, and the URLs above to validate a running stack. The frontend health indicator provides an end-to-end browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query.
