@@ -10,7 +10,7 @@ export default defineConfig({
       '/api': {
         target: 'http://backend:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => (path === '/api/health' ? '/health' : path),
       },
     },
   },

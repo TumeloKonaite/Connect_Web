@@ -1,8 +1,9 @@
-"""Liveness endpoint."""
+"""Health router for checking whether the API process is running."""
 
 from fastapi import APIRouter
 
 router = APIRouter(tags=["Health"])
+"""Provides the lightweight API health check endpoint."""
 
 
 @router.get("/health")

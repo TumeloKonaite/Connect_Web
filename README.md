@@ -19,8 +19,9 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 
 ### Services and technologies
 
-- **Frontend:** React and TypeScript build the browser interface. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
+- **Frontend:** React and TypeScript provide a machine records workspace for listing, creating, editing, and deleting machine data. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
 - **Backend:** FastAPI provides HTTP endpoints on port 8000. Its `/health` endpoint reports process health, and CORS is configured from `CORS_ORIGINS` for direct browser requests.
+- **Machine records API:** `POST`, `GET`, `PATCH`, and `DELETE` operations are available under `/api/machines`. The collection GET supports `limit` (default 100, maximum 500) and `offset` (default 0). Record identifiers use the dataset's positive `udi` value.
 - **Database:** PostgreSQL 16 stores application data. The backend reaches it at `db:5432` over the private Compose network. No host port is published. The named `connect-web-postgres-data` volume keeps data when containers are removed.
 - **Docker Compose:** builds the frontend and backend images, starts PostgreSQL, waits for database and API health checks before starting dependent services, and provides internal DNS names such as `backend` and `db`.
 - **Make:** provides consistent commands for common Compose operations.
@@ -69,7 +70,42 @@ Then open:
 - Backend health endpoint: <http://localhost:8000/health>
 - Backend API documentation: <http://localhost:8000/docs>
 
-The frontend health indicator calls `/api/health`; Vite forwards that request to `backend:8000` on the Compose network and removes the `/api` prefix. For local development outside Compose, set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` and allow that origin in `CORS_ORIGINS`.
+### Machine records API
+
+Use the Swagger UI at <http://localhost:8000/docs> to try the machine record endpoints. The API accepts machine type values `L`, `M`, or `H`; rotational speed, torque, and tool wear must be nonnegative. Creation requires a unique positive `udi`. PATCH accepts only fields to change, preserves omitted fields, rejects null values, and does not allow `udi` to be changed.
+
+| Method | Endpoint | Result |
+| --- | --- | --- |
+| `POST` | `/api/machines` | Create a record (`201`); duplicate UDI returns `409` |
+| `GET` | `/api/machines` | List records ordered by UDI, with `limit` and `offset` pagination (`200`) |
+| `GET` | `/api/machines/{udi}` | Retrieve one record (`200`, or `404` if missing) |
+| `PATCH` | `/api/machines/{udi}` | Partially update a record (`200`, or `404` if missing) |
+| `DELETE` | `/api/machines/{udi}` | Delete a record (`204`, or `404` if missing) |
+
+Example create request body:
+
+```json
+{
+  "udi": 1,
+  "product_id": "M14860",
+  "type": "M",
+  "air_temperature": 298.1,
+  "process_temperature": 308.6,
+  "rotational_speed": 1551,
+  "torque": 42.8,
+  "tool_wear": 0,
+  "machine_failure": false,
+  "twf": false,
+  "hdf": false,
+  "pwf": false,
+  "osf": false,
+  "rnf": false
+}
+```
+
+The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. Run it with `make test-backend`.
+
+The frontend calls `/api/machines` for machine data. Vite forwards these paths unchanged to `backend:8000` on the Compose network; it maps `/api/health` to the backend's `/health` route for the health indicator. For local development outside Compose, set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` and allow that origin in `CORS_ORIGINS`.
 
 ## Makefile commands
 

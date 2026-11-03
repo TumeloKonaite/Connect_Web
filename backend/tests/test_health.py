@@ -18,4 +18,7 @@ def test_openapi_docs_are_available() -> None:
     assert client.get("/docs").status_code == 200
     schema_response = client.get("/openapi.json")
     assert schema_response.status_code == 200
-    assert "/health" in schema_response.json()["paths"]
+    paths = schema_response.json()["paths"]
+    assert "/health" in paths
+    assert "/api/machines" in paths
+    assert "/api/machines/{udi}" in paths
