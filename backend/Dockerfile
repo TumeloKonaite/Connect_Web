@@ -9,9 +9,11 @@ ENV UV_PROJECT_ENVIRONMENT=/app/.venv \
     PYTHONUNBUFFERED=1
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --group dev
 
 COPY app ./app
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 EXPOSE 8000
 
