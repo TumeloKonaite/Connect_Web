@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 580" width="1120" height="580" role="img" aria-label="Sensor Data Explorer numeric time-series line chart screenshot">
+  <defs>
+    <linearGradient id="chartArea" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#1b7657" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#1b7657" stop-opacity="0.0"/>
+    </linearGradient>
+    <style>
+      .bg { fill: #f3f6f4; }
+      .card { fill: #ffffff; stroke: #e6ece8; stroke-width: 1; rx: 7px; }
+      .eyebrow { fill: #728078; font: 600 9px monospace; letter-spacing: 1.5px; }
+      .h2 { fill: #263c31; font: 700 17px sans-serif; }
+      .h3 { fill: #22382e; font: 600 14px sans-serif; }
+      .muted { fill: #7e8d84; font: 400 11px sans-serif; }
+      .label { fill: #66776d; font: 500 11px sans-serif; }
+      .input { fill: #fbfcfb; stroke: #dfe8e2; rx: 4px; }
+      .input-text { fill: #294238; font: 400 11px sans-serif; }
+      .btn { fill: #1b7657; rx: 4px; }
+      .btn-text { fill: #ffffff; font: 600 12px sans-serif; }
+      .chip { fill: #ffffff; stroke: #e4ece7; rx: 5px; }
+      .chip-hi { fill: #f3f9f5; stroke: #cde2d4; rx: 5px; }
+      .chip-k { fill: #84928a; font: 600 8px monospace; }
+      .chip-v { fill: #263c31; font: 600 10px sans-serif; }
+      .pill-num { fill: #e8f4ec; rx: 3px; }
+      .pill-num-t { fill: #2b6f51; font: 600 8px monospace; }
+      .stat-box { fill: #f8fbf9; stroke: #e6eee9; rx: 4px; }
+      .tooltip-bar { fill: #eef7f1; stroke: #bdd9c7; rx: 5px; }
+      .grid { stroke: #e8eee9; stroke-width: 1; }
+      .axis { stroke: #9eb0a4; stroke-width: 1.2; }
+      .line { fill: none; stroke: #1b7657; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+      .pt { fill: #ffffff; stroke: #1b7657; stroke-width: 2; }
+      .pt-act { fill: #1b7657; stroke: #0f4c36; stroke-width: 2.5; }
+      .tick { fill: #5e7066; font: 500 10px monospace; }
+      .axis-title { fill: #3d5447; font: 600 11px sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="1120" height="580" class="bg"/>
+
+  <!-- Left Query Setup Form Card -->
+  <rect x="28" y="24" width="350" height="532" class="card"/>
+  <text x="50" y="54" class="eyebrow">QUERY SETUP</text>
+  <text x="50" y="74" class="h3">Choose what to explore</text>
+  <text x="328" y="64" class="chip-k">01 — 04</text>
+
+  <text x="50" y="108" class="label">Monitoring device</text>
+  <rect x="50" y="116" width="306" height="36" class="input"/>
+  <text x="62" y="138" class="input-text">Demonstration Machine Monitor 1 · demo-device-1</text>
+
+  <text x="50" y="176" class="label">Parameter</text>
+  <rect x="50" y="184" width="306" height="36" class="input"/>
+  <text x="62" y="206" class="input-text">Air Temperature · K (numeric)</text>
+
+  <text x="50" y="244" class="label">Start date &amp; time</text>
+  <rect x="50" y="252" width="146" height="36" class="input"/>
+  <text x="60" y="274" class="input-text">2025-01-01 00:00</text>
+
+  <text x="210" y="244" class="label">End date &amp; time</text>
+  <rect x="210" y="252" width="146" height="36" class="input"/>
+  <text x="220" y="274" class="input-text">2025-01-02 00:00</text>
+
+  <text x="50" y="312" class="label">Minimum value (K)</text>
+  <rect x="50" y="320" width="146" height="36" class="input"/>
+  <text x="60" y="342" class="input-text">298.0</text>
+
+  <text x="210" y="312" class="label">Maximum value (K)</text>
+  <rect x="210" y="320" width="146" height="36" class="input"/>
+  <text x="220" y="342" class="input-text">299.0</text>
+
+  <rect x="50" y="376" width="306" height="34" fill="#f5f8f5" rx="4"/>
+  <text x="62" y="397" class="muted">◷ Times use your local timezone and are sent in UTC.</text>
+
+  <rect x="50" y="424" width="306" height="40" class="btn"/>
+  <text x="168" y="448" class="btn-text">View data →</text>
+
+  <!-- Right Observation Results Card -->
+  <rect x="396" y="24" width="696" height="532" class="card"/>
+  <text x="418" y="52" class="eyebrow">OBSERVATION RESULTS</text>
+  <text x="418" y="74" class="h2">Air Temperature (K)</text>
+  <rect x="982" y="48" width="90" height="22" class="pill-num"/>
+  <text x="992" y="62" class="pill-num-t">6 ROWS SHOWN</text>
+  <line x1="396" y1="88" x2="1092" y2="88" stroke="#edf1ee"/>
+
+  <!-- Context Chips -->
+  <rect x="397" y="89" width="694" height="42" fill="#fafcfb"/>
+  <rect x="414" y="97" width="218" height="26" class="chip"/>
+  <text x="422" y="113" class="chip-k">DEVICE</text>
+  <text x="462" y="113" class="chip-v">Demonstration Machine Monitor 1</text>
+
+  <rect x="640" y="97" width="188" height="26" class="chip"/>
+  <text x="648" y="113" class="chip-k">PARAMETER</text>
+  <text x="706" y="113" class="chip-v">Air Temperature · K</text>
+
+  <rect x="836" y="97" width="238" height="26" class="chip-hi"/>
+  <text x="844" y="113" class="chip-k">VALUE FILTER</text>
+  <text x="914" y="113" class="chip-v">298 to 299 K</text>
+  <line x1="396" y1="131" x2="1092" y2="131" stroke="#edf1ee"/>
+
+  <!-- Chart Header & Stats -->
+  <text x="418" y="156" class="h3">Air Temperature (K)</text>
+  <text x="418" y="172" class="muted">Time-series line chart · 6 observations plotted chronologically</text>
+
+  <rect x="822" y="142" width="80" height="26" class="stat-box"/>
+  <text x="830" y="158" class="chip-k">MIN</text>
+  <text x="852" y="158" class="chip-v">298.1 K</text>
+
+  <rect x="908" y="142" width="80" height="26" class="stat-box"/>
+  <text x="916" y="158" class="chip-k">MAX</text>
+  <text x="940" y="158" class="chip-v">298.8 K</text>
+
+  <rect x="994" y="142" width="80" height="26" class="stat-box"/>
+  <text x="1002" y="158" class="chip-k">AVG</text>
+  <text x="1026" y="158" class="chip-v">298.4 K</text>
+
+  <!-- Active Tooltip Inspector -->
+  <rect x="418" y="184" width="656" height="30" class="tooltip-bar"/>
+  <circle cx="432" cy="199" r="4" fill="#1b7657"/>
+  <text x="444" y="203" class="tick">Jan 01, 2025, 01:00</text>
+  <text x="572" y="203" class="chip-v">·  Air Temperature: 298.6 K</text>
+  <text x="1018" y="203" class="pill-num-t">UDI #13</text>
+
+  <!-- SVG Plot -->
+  <line x1="476" y1="245" x2="1058" y2="245" class="grid"/>
+  <text x="466" y="249" text-anchor="end" class="tick">298.8</text>
+  <line x1="476" y1="295" x2="1058" y2="295" class="grid"/>
+  <text x="466" y="299" text-anchor="end" class="tick">298.6</text>
+  <line x1="476" y1="345" x2="1058" y2="345" class="grid"/>
+  <text x="466" y="349" text-anchor="end" class="tick">298.4</text>
+  <line x1="476" y1="395" x2="1058" y2="395" class="grid"/>
+  <text x="466" y="399" text-anchor="end" class="tick">298.2</text>
+
+  <line x1="476" y1="230" x2="476" y2="420" class="axis"/>
+  <line x1="476" y1="420" x2="1058" y2="420" class="axis"/>
+
+  <path d="M 476 410 L 592 395 L 708 335 L 825 295 L 941 320 L 1058 245 L 1058 420 L 476 420 Z" fill="url(#chartArea)"/>
+  <path d="M 476 410 L 592 395 L 708 335 L 825 295 L 941 320 L 1058 245" class="line"/>
+
+  <line x1="825" y1="230" x2="825" y2="420" stroke="#78a88d" stroke-dasharray="3 3"/>
+
+  <circle cx="476" cy="410" r="4" class="pt"/>
+  <circle cx="592" cy="395" r="4" class="pt"/>
+  <circle cx="708" cy="335" r="4" class="pt"/>
+  <circle cx="825" cy="295" r="6" class="pt-act"/>
+  <circle cx="941" cy="320" r="4" class="pt"/>
+  <circle cx="1058" cy="245" r="4" class="pt"/>
+
+  <text x="476" y="442" text-anchor="start" class="tick">Jan 01, 00:00</text>
+  <text x="767" y="442" text-anchor="middle" class="tick">Jan 01, 00:50</text>
+  <text x="1058" y="442" text-anchor="end" class="tick">Jan 01, 01:40</text>
+  <text x="767" y="464" text-anchor="middle" class="axis-title">Timestamp</text>
+  <text transform="translate(418 325) rotate(-90)" text-anchor="middle" class="axis-title">Air Temperature (K)</text>
+
+  <!-- Pagination Footer -->
+  <line x1="396" y1="482" x2="1092" y2="482" stroke="#edf1ee"/>
+  <text x="418" y="502" class="chip-v">Page 1 · Showing 1–6</text>
+  <text x="418" y="516" class="muted">All 6 matching observations shown</text>
+  <rect x="926" y="492" width="70" height="26" class="input"/>
+  <text x="938" y="509" class="muted">← Previous</text>
+  <rect x="1004" y="492" width="68" height="26" class="input"/>
+  <text x="1020" y="509" class="muted">Next →</text>
+</svg>
+

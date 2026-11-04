@@ -10,7 +10,8 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 │   ├── app/api/routes/      HTTP routes, including GET /health
 │   └── tests/               Backend tests
 ├── frontend/                React + TypeScript + Vite application, API client, and Dockerfile
-│   └── src/                  Machine records page, forms, table, and API status
+│   └── src/                  Sensor Data Explorer, visualizations, machine records, and API client
+├── docs/screenshots/        Visual reference captures for numeric charts and text tables
 ├── docker-compose.yml        Frontend, backend, database, network, and volume
 ├── Makefile                  Shortcuts for Docker Compose commands
 ├── .env.example              Safe template for local configuration
@@ -19,7 +20,7 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 
 ### Services and technologies
 
-- **Frontend:** React and TypeScript provide a machine records workspace for listing, creating, editing, and deleting machine data. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
+- **Frontend:** React and TypeScript provide the Sensor Data Explorer and machine records workspace. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
 - **Backend:** FastAPI provides HTTP endpoints on port 8000. Its `/health` endpoint reports process health, and CORS is configured from `CORS_ORIGINS` for direct browser requests.
 - **Machine records API:** `POST`, `GET`, `PATCH`, and `DELETE` operations are available under `/api/machines`. The collection GET supports `limit` (default 100, maximum 500) and `offset` (default 0). Record identifiers use the dataset's positive `udi` value.
 - **Device API:** read-only endpoints list devices, return device parameters, and retrieve chronologically ordered observations filtered by parameter and optional timezone-aware start/end timestamps. Numeric parameters also support inclusive `min_value` and `max_value` filters. Observation results support `limit` and `offset` pagination.
@@ -138,11 +139,62 @@ Example create request body:
 
 The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. `make` targets are defined in the repository root, so run `make test-backend` from the root directory (`~/dataprophet`), not from `frontend/` or `backend/`. To run pytest directly without Docker, change to `backend/` and run `uv run --group dev pytest`.
 
-The Sensor Data Explorer calls `/api/devices`, `/api/devices/{device_uid}`, and `/api/devices/{device_uid}/observations` through the shared frontend API client. Select a device to load its parameters, then choose a parameter and start/end date and time. Parameter names identify observations within the selected device. Numeric parameters expose optional inclusive minimum and maximum filters; text parameters do not. The explorer fetches observation pages in batches of 1,000 until the final partial page, and keeps the returned observation shape for the visualization work in Issue 4.
+## Sensor Data Explorer & Visualizations
 
-The date/time fields show the browser's local time. The submitted ISO timestamps include the corresponding timezone offset (UTC conversion), as required by FastAPI. The initial period is January 1–2, 2025, matching the simulated demonstration dataset; these timestamps are not live collection times. Set `VITE_API_BASE_URL` in `frontend/.env.local` for local development outside Compose, and allow that origin in `CORS_ORIGINS`. In Compose, Vite forwards API paths to the backend service.
+The Sensor Data Explorer calls `/api/devices`, `/api/devices/{device_uid}`, and `/api/devices/{device_uid}/observations` through the shared frontend API client and automatically selects the appropriate visualization based on the chosen parameter's `data_type`.
 
-To run the frontend checks, use `cd frontend && npm run build` and `npm run lint`. The project does not currently include a frontend test runner.
+### Selecting a Device, Parameter, and Time Range
+
+1. **Select a monitoring device** in the Query Setup panel to load its configured parameters from `/api/devices/{device_uid}`.
+2. **Select a parameter** (`numeric` or `text`). Parameter names and units are shown in the selector.
+3. **Specify a start and end date/time**. Date/time inputs use your browser's local timezone and are converted to UTC ISO timestamps when querying FastAPI. The default window is January 1–2, 2025, matching the simulated demonstration dataset.
+4. **Apply optional numeric value filters**: When a `numeric` parameter is selected, inclusive **Minimum value** and **Maximum value** inputs appear. Applying these bounds filters the backend query (`min_value` and `max_value`) and updates the rendered line chart and context summary. Switching to a `text` parameter clears and hides numeric value bounds.
+5. Click **View data** to retrieve and visualize matching observations.
+
+### Numeric Observations (Time-Series Line Chart)
+
+When a parameter has `data_type: "numeric"` (such as Air Temperature, Process Temperature, Rotational Speed, Torque, or Tool Wear), observations are rendered in `NumericObservationChart`:
+
+- **Chronological time-based horizontal axis:** Observations are sorted chronologically and positioned proportionally to their timestamps so irregular time intervals are represented accurately.
+- **Accurate vertical scale:** The vertical axis uses `numericScale` to compute clean tick marks across positive, zero, negative, or single-observation datasets without unnecessary rounding.
+- **Context and summary stats:** Displays the parameter name, measurement unit badge, and summary statistics (`Min`, `Max`, `Avg`) for the plotted page.
+- **Interactive inspection:** Hovering or focusing any plotted observation point highlights it, renders a vertical alignment guide, and displays its exact timestamp, numeric value, unit, and source UDI in the inspector banner as well as native SVG point tooltips.
+
+![Numeric observation time-series chart](docs/screenshots/numeric-observation-chart.svg)
+
+### Text Observations (Timestamped Table)
+
+When a parameter has `data_type: "text"` (such as Product Type or Machine Failure), observations are rendered in `TextObservationTable`:
+
+- **Chronological rows:** Observations are ordered chronologically with **Observation Timestamp** in the first column and **Recorded \<Parameter\>** in the second column.
+- **Readable formatting:** Timestamps are formatted consistently with the numeric chart. Categorical values (such as `L`, `M`, `H`, `normal`, and `failure`) include clear visual badges while preserving readable text wrapping for long strings and explicit placeholders (`— (Not recorded)`) for empty or missing text values.
+
+![Text observation table](docs/screenshots/text-observation-table.svg)
+
+### Pagination and Visualization Limitations
+
+- **Paginated results:** The explorer requests `PAGE_SIZE` (100) observations per page plus one lookahead record (`limit=101`) to determine whether additional pages exist without loading the entire dataset into the browser.
+- **Page navigation:** Both numeric charts and text tables display only the currently loaded page (`Showing 1–100`, `Page 2 · Showing 101–200`, etc.) and provide **Previous** and **Next** buttons when more observations are available, ensuring partial pages are never misrepresented as the complete dataset.
+- **Known limitations:** Charts plot the raw observations for the active page (up to 100 points) without server-side downsampling or multi-page aggregation.
+
+### Running Frontend Tests
+
+Run the automated frontend tests, linter, and production build from `frontend/`:
+
+```sh
+cd frontend
+npm test
+npm run lint
+npm run build
+```
+
+Or run the containerized test suite from the repository root:
+
+```sh
+make test-frontend
+```
+
+The frontend test suite (`frontend/tests/numericScale.test.mjs` and `frontend/tests/visualizations.test.mjs`) verifies numeric axis scaling, time-series line chart rendering, single-point and zero/negative value handling, text observation table rendering, chronological ordering, filter context display, loading/empty/error states, and pagination controls.
 
 ## Machine records interface
 
@@ -160,8 +212,6 @@ curl -X POST 'http://localhost:8000/api/machines/import?filename=machines.csv' \
 
 The page is responsive: the table can scroll horizontally on narrow screens, while the record form and detail view reflow to fit.
 
-Screenshots are stored in [`docs/screenshots/`](docs/screenshots/). They should be captured from a running application with the bundled sample data loaded; see the validation status below for checks that have been completed in the current environment.
-
 ## Makefile commands
 
 Run these commands from the repository root:
@@ -175,6 +225,10 @@ Run these commands from the repository root:
 | `make logs` | Follow logs from all services; press Ctrl+C to stop following | No |
 | `make ps` | Show Compose service and container status | No |
 | `make seed` | Import sample CSV into PostgreSQL; duplicate UDIs remain unchanged | No |
+| `make seed-devices` | Generate and import simulated device observations (idempotent) | No |
+| `make test` | Run backend and frontend automated test suites | No |
+| `make test-backend` | Run backend pytest suite in a temporary container | No |
+| `make test-frontend` | Run frontend automated tests in a temporary container | No |
 
 Equivalent direct Compose commands are available if needed, for example `docker compose logs -f backend` or `docker compose exec backend sh`.
 
@@ -211,21 +265,21 @@ Run the available checks from the service directories:
 
 ```sh
 (cd backend && uv run --group dev pytest)
+(cd frontend && npm test)
 (cd frontend && npm run lint)
 (cd frontend && npm run build)
 ```
 
-Or run the Docker based backend test target from the repository root:
+Or run the Docker-based test targets from the repository root:
 
 ```sh
 make test-backend
+make test-frontend
 ```
-
-The frontend package does not yet include a UI test runner, so `make test-frontend` cannot run interaction tests until one is configured.
 
 ### Test coverage and isolation
 
-Backend endpoint tests replace the application's database dependency with a fresh, in-memory SQLite database for each test. This exercises the FastAPI routes, SQLAlchemy persistence, response codes, validation, duplicate handling, pagination, and missing-record behavior without reading or changing the Compose PostgreSQL volume. Seed parsing and idempotency are tested separately with the same isolated database approach. The Compose PostgreSQL service is verified through the integrated startup and manual workflow described below; the pytest suite does not connect to PostgreSQL.
+Backend endpoint tests replace the application's database dependency with a fresh, in-memory SQLite database for each test. This exercises the FastAPI routes, SQLAlchemy persistence, response codes, validation, duplicate handling, pagination, and missing-record behavior without reading or changing the Compose PostgreSQL volume. Seed parsing and idempotency are tested separately with the same isolated database approach. The Compose PostgreSQL service is verified through the integrated startup and manual workflow described above; the pytest suite does not connect to PostgreSQL.
 
 Useful checks and container shell access:
 
@@ -251,7 +305,7 @@ The `psql` command uses variables from the current shell; alternatively run `doc
 
 ## Validation status
 
-The backend pytest suite uses isolated SQLite databases and can be run with `make test-backend`. The frontend production build and lint checks can be run with the commands above. `docker compose config --quiet` validates the Compose file; use `make up`, `make ps`, and the URLs above to check a running stack. The frontend health indicator provides a browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query. Use Swagger at <http://localhost:8000/docs> to explore device endpoints. For example, `GET /api/devices/demo-device-1/observations?parameter=air_temperature&start=2025-01-01T00:00:00Z&end=2025-01-02T00:00:00Z` returns observations in timestamp order.
+The backend pytest suite uses isolated SQLite databases and can be run with `make test-backend`. The frontend automated tests, production build, and lint checks can be run with `make test-frontend`, `npm test`, `npm run build`, and `npm run lint`. `docker compose config --quiet` validates the Compose file; use `make up`, `make ps`, and the URLs above to check a running stack. The frontend health indicator provides a browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query. Use Swagger at <http://localhost:8000/docs> to explore device endpoints. For example, `GET /api/devices/demo-device-1/observations?parameter=air_temperature&start=2025-01-01T00:00:00Z&end=2025-01-02T00:00:00Z` returns observations in timestamp order.
 
 ## Design decisions and known limitations
 
@@ -259,5 +313,5 @@ The backend pytest suite uses isolated SQLite databases and can be run with `mak
 - Pydantic schemas reject invalid API inputs before persistence, while SQLAlchemy constraints provide a second validation layer in the database.
 - The repository layer owns database queries; the FastAPI routes translate expected validation, conflict, and missing-record conditions into HTTP responses.
 - SQLite fixtures make backend tests independent and safe to run against a developer's data. They do not replace the Compose PostgreSQL integration check.
-- The frontend has no automated interaction test runner yet. Verify create, view, edit, delete, confirmation cancellation, and validation feedback in the browser using the manual workflow above.
-- Screenshots must be captured from a running browser session with sample data loaded. The current workspace has no browser executable or screenshot automation installed, so screenshots could not be generated here; do not treat this item as complete until `docs/screenshots/` contains the populated table, record details, and create or edit form images.
+- The frontend automated tests cover numeric axis scaling and component rendering for numeric time-series charts, text observation tables, filter context headers, pagination states, and loading/empty/error states.
+- Each results page displays up to 100 observations without client-side downsampling or cross-page aggregation.
