@@ -138,11 +138,11 @@ Example create request body:
 
 The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. `make` targets are defined in the repository root, so run `make test-backend` from the root directory (`~/dataprophet`), not from `frontend/` or `backend/`. To run pytest directly without Docker, change to `backend/` and run `uv run --group dev pytest`.
 
-The Sensor Data Explorer calls `/api/devices`, `/api/devices/{device_uid}`, and `/api/devices/{device_uid}/observations` through the shared frontend API client. Select a device to load its parameters, then choose a parameter and start/end date and time. Parameter names identify observations within the selected device. Numeric parameters expose optional inclusive minimum and maximum filters; text parameters do not. The explorer fetches observation pages in batches of 1,000 until the final partial page, and keeps the returned observation shape for the visualization work in Issue 4.
+The Sensor Data Explorer calls `/api/devices`, `/api/devices/{device_uid}`, and `/api/devices/{device_uid}/observations` through the shared frontend API client. Select a device to load its parameters, then choose a parameter and start/end date and time. Parameter names identify observations within the selected device. Numeric parameters expose optional inclusive minimum and maximum filters; text parameters do not. Results show the applied device, parameter, date range, and numeric bounds. Numeric values appear in a responsive time-scaled line chart with point tooltips; text values appear in a timestamped table. Results load 100 observations per page and use Previous/Next controls; the extra lookahead row tells the interface whether another page is available without loading the full result set. Charts and tables show only the currently loaded page.
 
 The date/time fields show the browser's local time. The submitted ISO timestamps include the corresponding timezone offset (UTC conversion), as required by FastAPI. The initial period is January 1–2, 2025, matching the simulated demonstration dataset; these timestamps are not live collection times. Set `VITE_API_BASE_URL` in `frontend/.env.local` for local development outside Compose, and allow that origin in `CORS_ORIGINS`. In Compose, Vite forwards API paths to the backend service.
 
-To run the frontend checks, use `cd frontend && npm run build` and `npm run lint`. The project does not currently include a frontend test runner.
+To check the frontend, use `cd frontend && npm run build`, `npm run lint`, and `npm test`. The frontend test command uses Node's built-in test runner and covers numeric axis scaling, including positive, negative, zero, malformed, and single-value datasets. The chart keeps all observations visible in the responsive panel and provides per-point tooltips; dense pages are not aggregated or downsampled.
 
 ## Machine records interface
 
@@ -160,7 +160,7 @@ curl -X POST 'http://localhost:8000/api/machines/import?filename=machines.csv' \
 
 The page is responsive: the table can scroll horizontally on narrow screens, while the record form and detail view reflow to fit.
 
-Screenshots are stored in [`docs/screenshots/`](docs/screenshots/). They should be captured from a running application with the bundled sample data loaded; see the validation status below for checks that have been completed in the current environment.
+Screenshots should be captured from a running application with the bundled sample data loaded and saved in [`docs/screenshots/`](docs/screenshots/). The current environment does not include browser screenshot automation, so numeric-chart and text-table screenshots remain a manual documentation step.
 
 ## Makefile commands
 
@@ -221,7 +221,7 @@ Or run the Docker based backend test target from the repository root:
 make test-backend
 ```
 
-The frontend package does not yet include a UI test runner, so `make test-frontend` cannot run interaction tests until one is configured.
+Frontend numeric-axis tests run with `cd frontend && npm test`; build and lint checks use `npm run build` and `npm run lint`.
 
 ### Test coverage and isolation
 
@@ -259,5 +259,5 @@ The backend pytest suite uses isolated SQLite databases and can be run with `mak
 - Pydantic schemas reject invalid API inputs before persistence, while SQLAlchemy constraints provide a second validation layer in the database.
 - The repository layer owns database queries; the FastAPI routes translate expected validation, conflict, and missing-record conditions into HTTP responses.
 - SQLite fixtures make backend tests independent and safe to run against a developer's data. They do not replace the Compose PostgreSQL integration check.
-- The frontend has no automated interaction test runner yet. Verify create, view, edit, delete, confirmation cancellation, and validation feedback in the browser using the manual workflow above.
-- Screenshots must be captured from a running browser session with sample data loaded. The current workspace has no browser executable or screenshot automation installed, so screenshots could not be generated here; do not treat this item as complete until `docs/screenshots/` contains the populated table, record details, and create or edit form images.
+- The frontend automated tests currently cover numeric chart scale calculations. Verify the complete device-to-chart/table interactions, loading, empty, error, and pagination flows in the browser using the Sensor Data Explorer manual workflow above.
+- Visualization screenshots must be captured from a running browser session with sample data loaded. No browser screenshot automation is available in this environment, so `docs/screenshots/` still needs numeric chart and text table captures.

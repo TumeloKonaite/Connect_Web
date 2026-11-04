@@ -1,6 +1,62 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../services/api'
+import { numericScale } from '../lib/numericScale.js'
 import type { DeviceParameter, MonitoringDevice, Observation } from '../types/api'
+
+const PAGE_SIZE = 100
+
+function formatTimestamp(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Invalid timestamp' : date.toLocaleString()
+}
+
+function ObservationChart({ observations, parameter }: { observations: Observation[]; parameter: DeviceParameter }) {
+  const points = observations.flatMap((item) => {
+    const date = new Date(item.observed_at).getTime()
+    const value = item.numeric_value
+    return Number.isFinite(date) && typeof value === 'number' && Number.isFinite(value) ? [{ item, date, value }] : []
+  }).sort((a, b) => a.date - b.date || a.item.id - b.item.id)
+  if (!points.length) return <p className="results-message">No valid numeric observations were returned.</p>
+  const width = 760, height = 300, left = 64, right = 20, top = 20, bottom = 58
+  const values = points.map((point) => point.value)
+  const scale = numericScale(values)
+  if (!scale) return <p className="results-message">No valid numeric observations were returned.</p>
+  const { min: minValue, max: maxValue, ticks } = scale
+  const valueRange = maxValue - minValue || 1
+  const firstTime = points[0].date, lastTime = points[points.length - 1].date
+  const timeRange = lastTime - firstTime || 1
+  const x = (date: number) => left + ((date - firstTime) / timeRange) * (width - left - right)
+  const y = (value: number) => top + ((maxValue - value) / valueRange) * (height - top - bottom)
+  const line = points.map((point, index) => `${index ? 'L' : 'M'} ${x(point.date)} ${y(point.value)}`).join(' ')
+  return <div className="chart-wrap">
+    <svg className="observation-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${parameter.name.replaceAll('_', ' ')} over time, ${points.length} observations. Values range from ${Math.min(...values)} to ${Math.max(...values)}${parameter.unit ? ` ${parameter.unit}` : ''}.`}>
+      {ticks.map((value) => <g key={value}><line x1={left} x2={width - right} y1={y(value)} y2={y(value)} className="chart-grid"/><text x={left - 10} y={y(value) + 4} textAnchor="end" className="chart-label">{value.toLocaleString(undefined, { maximumSignificantDigits: 5 })}</text></g>)}
+      <line x1={left} x2={left} y1={top} y2={height - bottom} className="chart-axis"/><line x1={left} x2={width - right} y1={height - bottom} y2={height - bottom} className="chart-axis"/>
+      <path d={line} className="chart-line"/>
+      {points.map(({ item, date, value }) => <circle key={item.id} cx={x(date)} cy={y(value)} r={points.length === 1 ? 5 : 3.5} className="chart-point"><title>{formatTimestamp(item.observed_at)} · {value}{parameter.unit ? ` ${parameter.unit}` : ''}</title></circle>)}
+      {points.length === 1 && <text x={x(firstTime)} y={height - 15} textAnchor="middle" className="chart-label">{formatTimestamp(points[0].item.observed_at)}</text>}
+      {points.length > 1 && <><text x={left} y={height - 20} textAnchor="start" className="chart-label">{formatTimestamp(points[0].item.observed_at)}</text><text x={width - right} y={height - 20} textAnchor="end" className="chart-label">{formatTimestamp(points[points.length - 1].item.observed_at)}</text></>}
+      <text x={width / 2} y={height - 2} textAnchor="middle" className="chart-axis-title">Timestamp</text>
+      <text transform={`translate(16 ${height / 2}) rotate(-90)`} textAnchor="middle" className="chart-axis-title">{parameter.name.replaceAll('_', ' ')}{parameter.unit ? ` (${parameter.unit})` : ''}</text>
+    </svg>
+  </div>
+}
+
+function ObservationResults({ observations, parameter, device, start, end, minimum, maximum, offset, hasMore, onPage, loading }: {
+  observations: Observation[] | null; parameter: DeviceParameter | null; device: MonitoringDevice | null; start: string; end: string; minimum?: number; maximum?: number; offset: number; hasMore: boolean; onPage: (offset: number) => void; loading: boolean
+}) {
+  return <section className="explorer-results" aria-live="polite">
+    <div className="results-heading"><div><p className="eyebrow">OBSERVATION RESULTS</p><h2>{observations === null ? 'Ready when you are' : 'Your data'}</h2></div>{observations && <span className="result-count">{observations.length.toLocaleString()} SHOWN</span>}</div>
+    {loading ? <div className="results-message"><span className="result-spinner"/><strong>Retrieving observations</strong><span>Loading the requested page.</span></div>
+      : observations === null ? <div className="results-message"><span className="result-icon">↗</span><strong>Set your filters to get started</strong><span>Results will appear here after you select a device, parameter and time period.</span></div>
+      : observations.length === 0 ? <div className="results-message"><span className="result-icon">⌕</span><strong>No observations found</strong><span>Try a wider time period or adjust the selected value range.</span></div>
+      : <><div className="results-context"><strong>{device?.name ?? 'Selected device'}</strong><span>{parameter?.name.replaceAll('_', ' ')} · {parameter?.data_type}{parameter?.unit ? ` · ${parameter.unit}` : ''}</span><span>{formatTimestamp(start)} — {formatTimestamp(end)}</span>{(minimum !== undefined || maximum !== undefined) && <span>Value range: {minimum ?? '−∞'} to {maximum ?? '∞'}{parameter?.unit ? ` ${parameter.unit}` : ''}</span>}</div>
+        {parameter?.data_type === 'numeric' ? <ObservationChart observations={observations} parameter={parameter}/> : <div className="table-scroll observation-table-wrap"><table><thead><tr><th scope="col">Timestamp</th><th scope="col">{parameter?.name.replaceAll('_', ' ') ?? 'Recorded value'}</th></tr></thead><tbody>{observations.map((item) => <tr key={item.id}><td>{formatTimestamp(item.observed_at)}</td><td className="observation-text">{item.text_value?.trim() || '—'}</td></tr>)}</tbody></table></div>}
+        <nav className="observation-pagination" aria-label="Observation pages"><span>Showing {offset + 1}–{offset + observations.length}{hasMore ? ' (more available)' : ''}</span><div><button type="button" onClick={() => onPage(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0 || loading}>Previous</button><button type="button" onClick={() => onPage(offset + PAGE_SIZE)} disabled={!hasMore || loading}>Next</button></div></nav>
+      </>}
+    <div className="results-meta"><span className="status-dot"/> CONNECTED TO SENSOR API <span>·</span> CHRONOLOGICAL ORDER</div>
+  </section>
+}
 
 function toUtcIso(value: string) {
   return new Date(value).toISOString()
@@ -14,6 +70,9 @@ export function SensorDataExplorerPage() {
   const [devicesLoading, setDevicesLoading] = useState(true)
   const [parametersLoading, setParametersLoading] = useState(false)
   const [observations, setObservations] = useState<Observation[] | null>(null)
+  const [query, setQuery] = useState<{ device: MonitoringDevice; parameter: DeviceParameter; start: string; end: string; displayStart: string; displayEnd: string; minimum?: number; maximum?: number } | null>(null)
+  const [pageOffset, setPageOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [observationsLoading, setObservationsLoading] = useState(false)
   const [error, setError] = useState('')
   const [deviceError, setDeviceError] = useState('')
@@ -56,6 +115,7 @@ export function SensorDataExplorerPage() {
     setParameters([])
     setParameter(null)
     setObservations(null)
+    setQuery(null)
     setError('')
     setParameterError('')
     setMinimum('')
@@ -77,6 +137,7 @@ export function SensorDataExplorerPage() {
     const selected = parameters.find((item) => item.name === name) ?? null
     setParameter(selected)
     setObservations(null)
+    setQuery(null)
     setError('')
     setValidation({})
     if (selected?.data_type !== 'numeric') {
@@ -114,15 +175,21 @@ export function SensorDataExplorerPage() {
     setObservations(null)
     setError('')
     setObservationsLoading(true)
-    try {
-      const result = await api.getObservations(device.device_uid, {
+    const filters = {
         parameter: parameter.name,
         start: toUtcIso(start),
         end: toUtcIso(end),
         ...(parameter.data_type === 'numeric' && min !== undefined ? { minValue: min } : {}),
         ...(parameter.data_type === 'numeric' && max !== undefined ? { maxValue: max } : {}),
-      }, controller.signal)
-      if (currentRequest === requestId.current) setObservations(result)
+      }
+    try {
+      const result = await api.getObservations(device.device_uid, filters, PAGE_SIZE + 1, 0, controller.signal)
+      if (currentRequest === requestId.current) {
+        setObservations(result.slice(0, PAGE_SIZE))
+        setPageOffset(0)
+        setHasMore(result.length > PAGE_SIZE)
+        setQuery({ device, parameter, start: filters.start, end: filters.end, displayStart: start, displayEnd: end, minimum: filters.minValue, maximum: filters.maxValue })
+      }
     } catch (reason) {
       if (!controller.signal.aborted && currentRequest === requestId.current) {
         setError(reason instanceof Error ? reason.message : 'Unable to retrieve observations. Please try again.')
@@ -130,6 +197,23 @@ export function SensorDataExplorerPage() {
     } finally {
       if (currentRequest === requestId.current) setObservationsLoading(false)
     }
+  }
+
+  async function loadPage(offset: number) {
+    if (!query) return
+    observationsRequest.current?.abort()
+    const controller = new AbortController()
+    observationsRequest.current = controller
+    const currentRequest = ++requestId.current
+    setObservations(null)
+    setObservationsLoading(true)
+    setError('')
+    try {
+      const result = await api.getObservations(query.device.device_uid, { parameter: query.parameter.name, start: query.start, end: query.end, ...(query.minimum !== undefined ? { minValue: query.minimum } : {}), ...(query.maximum !== undefined ? { maxValue: query.maximum } : {}) }, PAGE_SIZE + 1, offset, controller.signal)
+      if (currentRequest === requestId.current) { setObservations(result.slice(0, PAGE_SIZE)); setPageOffset(offset); setHasMore(result.length > PAGE_SIZE) }
+    } catch (reason) {
+      if (!controller.signal.aborted && currentRequest === requestId.current) setError(reason instanceof Error ? reason.message : 'Unable to retrieve observations. Please try again.')
+    } finally { if (currentRequest === requestId.current) setObservationsLoading(false) }
   }
 
   return (
@@ -188,22 +272,7 @@ export function SensorDataExplorerPage() {
           </button>
         </form>
 
-        <section className="explorer-results" aria-live="polite">
-          <div className="results-heading"><div><p className="eyebrow">OBSERVATION RESULTS</p><h2>{observations ? 'Your data' : 'Ready when you are'}</h2></div>{observations && <span className="result-count">{observations.length.toLocaleString()} ROWS</span>}</div>
-          {observationsLoading ? <div className="results-message"><span className="result-spinner" /><strong>Retrieving your data</strong><span>Matching observations are being loaded from the monitoring API.</span></div>
-            : error ? <div className="results-message results-message--error"><span className="result-icon">!</span><strong>Couldn’t retrieve observations</strong><span>{error}</span></div>
-            : observations === null ? <div className="results-message"><span className="result-icon">↗</span><strong>Set your filters to get started</strong><span>Results will appear here after you select a device, parameter and time period.</span></div>
-            : observations.length === 0 ? <div className="results-message"><span className="result-icon">⌕</span><strong>No observations found</strong><span>Try a wider time period or adjust the selected value range.</span></div>
-            : <div className="results-summary">
-              <div className="summary-mark">✓</div>
-              <strong>{observations.length.toLocaleString()} observations retrieved</strong>
-              <span>{device?.name} · {parameter?.name.replaceAll('_', ' ')}{parameter?.unit ? ` (${parameter.unit})` : ''}</span>
-              <span className="summary-range">{new Date(start).toLocaleString()} — {new Date(end).toLocaleString()}</span>
-              <p>Observation data is ready for chart and table visualizations.</p>
-              <details className="observation-preview"><summary>Preview first 5 observations</summary><div className="table-scroll"><table><thead><tr><th>Timestamp</th><th>Value</th><th>Source UDI</th></tr></thead><tbody>{observations.slice(0, 5).map((item) => <tr key={item.id}><td>{new Date(item.observed_at).toLocaleString()}</td><td>{item.numeric_value ?? item.text_value ?? '—'}{item.numeric_value !== null && parameter?.unit ? ` ${parameter.unit}` : ''}</td><td>{item.source_udi ?? '—'}</td></tr>)}</tbody></table></div></details>
-            </div>}
-          <div className="results-meta"><span className="status-dot" /> CONNECTED TO SENSOR API <span>·</span> CHRONOLOGICAL ORDER</div>
-        </section>
+        {error ? <section className="explorer-results" aria-live="polite"><div className="results-heading"><div><p className="eyebrow">OBSERVATION RESULTS</p><h2>Unable to load data</h2></div></div><div className="results-message results-message--error" role="alert"><span className="result-icon">!</span><strong>Couldn’t retrieve observations</strong><span>{error}</span></div></section> : <ObservationResults observations={observations} parameter={query?.parameter ?? null} device={query?.device ?? null} start={query?.displayStart ?? start} end={query?.displayEnd ?? end} minimum={query?.minimum} maximum={query?.maximum} offset={pageOffset} hasMore={hasMore} onPage={loadPage} loading={observationsLoading} />}
       </div>
     </>
   )

@@ -49,15 +49,13 @@ export const api = {
   getDevices: (signal?: AbortSignal) => request<MonitoringDevice[]>('/api/devices', { signal }),
   getDevice: (deviceUid: string, signal?: AbortSignal) =>
     request<MonitoringDeviceDetail>(`/api/devices/${encodeURIComponent(deviceUid)}`, { signal }),
-  getObservations: async (
+  getObservations: (
     deviceUid: string,
     filters: ObservationFilters,
+    limit = 100,
+    offset = 0,
     signal?: AbortSignal,
   ): Promise<Observation[]> => {
-    const observations: Observation[] = []
-    const limit = 1000
-    let offset = 0
-    while (true) {
       const query = new URLSearchParams({
         parameter: filters.parameter,
         start: filters.start,
@@ -67,14 +65,10 @@ export const api = {
       })
       if (filters.minValue !== undefined) query.set('min_value', String(filters.minValue))
       if (filters.maxValue !== undefined) query.set('max_value', String(filters.maxValue))
-      const page = await request<Observation[]>(
+      return request<Observation[]>(
         `/api/devices/${encodeURIComponent(deviceUid)}/observations?${query.toString()}`,
         { signal },
       )
-      observations.push(...page)
-      if (page.length < limit) return observations
-      offset += page.length
-    }
   },
   importCsv: async (file: File) => {
     const query = new URLSearchParams({ filename: file.name })
