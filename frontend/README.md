@@ -1,6 +1,14 @@
 # Frontend
 
-React and TypeScript interface for viewing and managing machine records. The frontend can be started and developed independently of the backend, but API-driven features need a reachable FastAPI service.
+React and TypeScript interface for exploring sensor observations and managing machine records. The frontend can be started and developed independently of the backend, but API-driven features need a reachable FastAPI service.
+
+## Sensor Data Explorer
+
+The main page lets you choose a monitoring device, load its parameters, set a start and end date/time, and retrieve matching observations from FastAPI. Parameter names identify observations within the selected device. Numeric parameters show optional inclusive minimum and maximum fields; switching to a text parameter clears and hides those filters. Results retain the API observation shape and all pages are fetched in batches of up to 1,000 rows so the data is ready for visualization components.
+
+Date/time inputs use the browser's local timezone. Requests send ISO timestamps with a timezone offset (converted to UTC). The default range is January 1–2, 2025, matching the simulated demonstration data; it does not represent live collection times. Set `VITE_API_BASE_URL` as described below to configure the backend origin.
+
+The project currently has no frontend test runner. Run `npm run build` and `npm run lint` from this directory to check the frontend.
 
 ## Requirements
 
