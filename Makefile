@@ -11,7 +11,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; print "Usage: make <target>\n\nTargets:"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 build: ## Build all service images
-	@$(COMPOSE) build || { echo "Error: Docker Compose could not build the services. Check Docker is running and the Compose configuration is valid." >&2; exit 1; }
+	@$(COMPOSE) build || { echohttps://github.com/TumeloKonaite/Connect_Web "Error: Docker Compose could not build the services. Check Docker is running and the Compose configuration is valid." >&2; exit 1; }
 
 up: ## Build and start all services in the background
 	@$(COMPOSE) up --build -d || { echo "Error: Could not start the application. Check Docker is running and inspect logs with 'make logs'." >&2; exit 1; }
@@ -57,7 +57,7 @@ seed-devices: ## Generate and import simulated device observations (idempotent)
 	@$(COMPOSE) exec backend uv run --no-sync python -m app.device_dataset || { echo "Error: Could not import device observations. Start services with 'make up' and check migrations and database connectivity." >&2; exit 1; }
 
 test-frontend: ## Run frontend tests if a test script is configured
-	@$(COMPOSE) run --rm --no-deps frontend sh -c 'node -e '\''const p = require("./package.json"); if (!p.scripts || !p.scripts.test) { console.error("Error: No frontend test runner is configured in frontend/package.json."); process.exit(2); }'\'' && npm test -- --run' || { echo "Error: Frontend tests failed. Check the frontend test runner and Docker configuration." >&2; exit 1; }
+	@$(COMPOSE) run --rm --no-deps frontend sh -c 'node -e '\''const p = require("./package.json"); if (!p.scripts || !p.scripts.test) { console.error("Error: No frontend test runner is configured in frontend/package.json."); process.exit(2); }'\'' && npm test' || { echo "Error: Frontend tests failed. Check the frontend test runner and Docker configuration." >&2; exit 1; }
 
 clean: ## Remove stopped application containers and networks; preserve database volume
 	@$(COMPOSE) down --remove-orphans
