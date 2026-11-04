@@ -138,7 +138,11 @@ Example create request body:
 
 The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. `make` targets are defined in the repository root, so run `make test-backend` from the root directory (`~/dataprophet`), not from `frontend/` or `backend/`. To run pytest directly without Docker, change to `backend/` and run `uv run --group dev pytest`.
 
-The machine records page calls `/api/machines` for data and `/api/machines/{udi}` for individual records. It requests 25 records at a time with the FastAPI `limit` and `offset` parameters. Vite forwards API paths to `backend:8000` on the Compose network and maps `/api/health` to `/health` for the health indicator. For local development outside Compose, set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` and allow that origin in `CORS_ORIGINS`.
+The Sensor Data Explorer calls `/api/devices`, `/api/devices/{device_uid}`, and `/api/devices/{device_uid}/observations` through the shared frontend API client. Select a device to load its parameters, then choose a parameter and start/end date and time. Parameter names identify observations within the selected device. Numeric parameters expose optional inclusive minimum and maximum filters; text parameters do not. The explorer fetches observation pages in batches of 1,000 until the final partial page, and keeps the returned observation shape for the visualization work in Issue 4.
+
+The date/time fields show the browser's local time. The submitted ISO timestamps include the corresponding timezone offset (UTC conversion), as required by FastAPI. The initial period is January 1–2, 2025, matching the simulated demonstration dataset; these timestamps are not live collection times. Set `VITE_API_BASE_URL` in `frontend/.env.local` for local development outside Compose, and allow that origin in `CORS_ORIGINS`. In Compose, Vite forwards API paths to the backend service.
+
+To run the frontend checks, use `cd frontend && npm run build` and `npm run lint`. The project does not currently include a frontend test runner.
 
 ## Machine records interface
 

@@ -1,4 +1,4 @@
-import type { CsvImportResult, HealthResponse, MachineRecord, MachineRecordInput } from '../types/api'
+import type { CsvImportResult, HealthResponse, MachineRecord, MachineRecordInput, MonitoringDevice, MonitoringDeviceDetail, Observation, ObservationFilters } from '../types/api'
 
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 // Endpoint paths below already include `/api`. Accept older Compose values
@@ -46,6 +46,36 @@ export const api = {
     request<MachineRecord>(`/api/machines/${udi}`, { method: 'PATCH', body: changes }),
   deleteMachine: (udi: number) =>
     request<void>(`/api/machines/${udi}`, { method: 'DELETE' }),
+  getDevices: (signal?: AbortSignal) => request<MonitoringDevice[]>('/api/devices', { signal }),
+  getDevice: (deviceUid: string, signal?: AbortSignal) =>
+    request<MonitoringDeviceDetail>(`/api/devices/${encodeURIComponent(deviceUid)}`, { signal }),
+  getObservations: async (
+    deviceUid: string,
+    filters: ObservationFilters,
+    signal?: AbortSignal,
+  ): Promise<Observation[]> => {
+    const observations: Observation[] = []
+    const limit = 1000
+    let offset = 0
+    while (true) {
+      const query = new URLSearchParams({
+        parameter: filters.parameter,
+        start: filters.start,
+        end: filters.end,
+        limit: String(limit),
+        offset: String(offset),
+      })
+      if (filters.minValue !== undefined) query.set('min_value', String(filters.minValue))
+      if (filters.maxValue !== undefined) query.set('max_value', String(filters.maxValue))
+      const page = await request<Observation[]>(
+        `/api/devices/${encodeURIComponent(deviceUid)}/observations?${query.toString()}`,
+        { signal },
+      )
+      observations.push(...page)
+      if (page.length < limit) return observations
+      offset += page.length
+    }
+  },
   importCsv: async (file: File) => {
     const query = new URLSearchParams({ filename: file.name })
     const response = await fetch(`${apiBaseUrl}/api/machines/import?${query}`, {
