@@ -9,7 +9,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.repository.database.base import Base
 from app.repository.database.tables.machine_record import MachineRecord
-from app.seed import FIELDS, import_csv, parse_record
+from app.seed import import_csv
+from app.services.machine_records.csv_import import FIELDS, parse_record
 
 engine = create_engine("sqlite://")
 TestingSession = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -105,6 +106,41 @@ def test_duplicate_invalid_and_valid_rows_are_counted_and_continue(session):
     assert "processed=3 inserted=1 duplicate=1 invalid=1 failed=0" in output.getvalue()
 
 
+def test_original_ai4i_headers_are_normalized(session):
+    headings = (
+        "UDI",
+        "Product ID",
+        "Type",
+        "Air temperature [K]",
+        "Process temperature [K]",
+        "Rotational speed [rpm]",
+        "Torque [Nm]",
+        "Tool wear [min]",
+        "Machine failure",
+        "TWF",
+        "HDF",
+        "PWF",
+        "OSF",
+        "RNF",
+    )
+    values = row()
+    output = StringIO()
+    writer = csv.DictWriter(output, fieldnames=headings)
+    writer.writeheader()
+    writer.writerow(
+        {
+            heading: values[field]
+            for heading, field in zip(headings, FIELDS, strict=True)
+        }
+    )
+    output.seek(0)
+
+    counts = import_csv(output, session, StringIO())
+
+    assert counts == {"processed": 1, "inserted": 1}
+    assert session.get(MachineRecord, 1).product_id == "M14861"
+
+
 def test_empty_and_header_only_csv(session):
     assert import_csv(StringIO(""), session, StringIO()) == {}
     assert import_csv(csv_text(), session, StringIO()) == {}
@@ -118,15 +154,11 @@ def test_missing_headers_raise_clear_error(session):
 
 def test_database_failure_does_not_block_following_record(session, monkeypatch):
     original_commit = session.commit
-    attempts = 0
 
-    # Make the simulated failure a SQLAlchemy database error caught by importer.
     from sqlalchemy.exc import SQLAlchemyError
 
     def database_commit_failure():
-        nonlocal attempts
-        attempts += 1
-        if attempts == 1:
+        if any(record.udi == 1 for record in session.new):
             raise SQLAlchemyError("simulated failure")
         original_commit()
 

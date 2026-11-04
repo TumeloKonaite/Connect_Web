@@ -21,4 +21,5 @@ def test_openapi_docs_are_available() -> None:
     paths = schema_response.json()["paths"]
     assert "/health" in paths
     assert "/api/machines" in paths
+    assert "/api/machines/import" in paths
     assert "/api/machines/{udi}" in paths

@@ -1,6 +1,9 @@
-import type { HealthResponse, MachineRecord, MachineRecordInput } from '../types/api'
+import type { CsvImportResult, HealthResponse, MachineRecord, MachineRecordInput } from '../types/api'
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
+// Endpoint paths below already include `/api`. Accept older Compose values
+// such as `/api` or `http://localhost:8000/api` without doubling that prefix.
+const apiBaseUrl = configuredApiBase.replace(/\/api$/, '')
 
 async function request<T>(
   path: string,
@@ -43,4 +46,21 @@ export const api = {
     request<MachineRecord>(`/api/machines/${udi}`, { method: 'PATCH', body: changes }),
   deleteMachine: (udi: number) =>
     request<void>(`/api/machines/${udi}`, { method: 'DELETE' }),
+  importCsv: async (file: File) => {
+    const query = new URLSearchParams({ filename: file.name })
+    const response = await fetch(`${apiBaseUrl}/api/machines/import?${query}`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'text/csv' },
+      body: file,
+    })
+    if (!response.ok) {
+      let message = `Request failed (${response.status} ${response.statusText})`
+      try {
+        const payload = (await response.json()) as { detail?: unknown }
+        if (typeof payload.detail === 'string') message = payload.detail
+      } catch { /* Keep the HTTP status message when the response has no JSON body. */ }
+      throw new Error(message)
+    }
+    return (await response.json()) as CsvImportResult
+  },
 }

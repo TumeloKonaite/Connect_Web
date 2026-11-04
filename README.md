@@ -98,6 +98,7 @@ Use the Swagger UI at <http://localhost:8000/docs> to try the machine record end
 | `GET` | `/api/machines/{udi}` | Retrieve one record (`200`, or `404` if missing) |
 | `PATCH` | `/api/machines/{udi}` | Partially update a record (`200`, or `404` if missing) |
 | `DELETE` | `/api/machines/{udi}` | Delete a record (`204`, or `404` if missing) |
+| `POST` | `/api/machines/import?filename=machines.csv` | Import CSV rows and return inserted, duplicate, invalid, and failed counts |
 
 Example create request body:
 
@@ -120,17 +121,27 @@ Example create request body:
 }
 ```
 
-The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. Run it with `make test-backend`.
+The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. `make` targets are defined in the repository root, so run `make test-backend` from the root directory (`~/dataprophet`), not from `frontend/` or `backend/`. To run pytest directly without Docker, change to `backend/` and run `uv run --group dev pytest`.
 
 The machine records page calls `/api/machines` for data and `/api/machines/{udi}` for individual records. It requests 25 records at a time with the FastAPI `limit` and `offset` parameters. Vite forwards API paths to `backend:8000` on the Compose network and maps `/api/health` to `/health` for the health indicator. For local development outside Compose, set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` and allow that origin in `CORS_ORIGINS`.
 
 ## Machine records interface
 
-Start the integrated application with `make up`, then open <http://localhost:5173>. Use **Add Machine Record** to create a record, **View** to inspect every measurement and failure indicator, **Edit** to update a record while keeping its UDI fixed, and **Delete** to remove it after browser confirmation. The table is ordered by UDI and uses Previous/Next controls to load backend pages. Validation errors and API responses appear above the record controls. To load the sample records, run `make seed`.
+Start the integrated application with `make up`, then open <http://localhost:5173>. Use the **Single record** tab in the Record Details card to create a record, **View** to inspect every measurement and failure indicator, **Edit** to update a record while keeping its UDI fixed, and **Delete** to remove it after browser confirmation. The table is ordered by UDI and uses Previous/Next controls to load backend pages. Validation errors and API responses appear above the record controls. To load the sample records, run `make seed`.
+
+The **Record Details** card has **Single record** and **Bulk CSV** tabs. Use **Single record** to create or edit one machine and **Bulk CSV** to upload a dataset. Choose a `.csv` file and select **Upload CSV**. The CSV must be UTF-8 and include all 14 machine columns. Both snake_case headers (such as `air_temperature`) and the original AI4I headers (such as `Air temperature [K]`) are accepted. The API accepts files up to 5 MiB and 10,000 data rows. Existing UDIs are skipped; invalid rows are skipped and reported with line numbers. The table reloads after the import, and the result lists inserted, duplicate, invalid, and failed counts.
+
+The CSV endpoint is also available directly. It accepts the raw CSV request body (not multipart form data):
+
+```sh
+curl -X POST 'http://localhost:8000/api/machines/import?filename=machines.csv' \
+  -H 'Content-Type: text/csv' \
+  --data-binary @machines.csv
+```
 
 The page is responsive: the table can scroll horizontally on narrow screens, while the record form and detail view reflow to fit.
 
-To capture the current interface for documentation, run the stack, open <http://localhost:5173>, and save a browser screenshot as `docs/machine-records.png`.
+Screenshots are stored in [`docs/screenshots/`](docs/screenshots/). They should be captured from a running application with the bundled sample data loaded; see the validation status below for checks that have been completed in the current environment.
 
 ## Makefile commands
 
@@ -180,12 +191,22 @@ When running services on the host, the Compose-only Vite proxy target `backend` 
 Run the available checks from the service directories:
 
 ```sh
-cd backend && uv run --group dev pytest
-cd frontend && npm run lint
-cd frontend && npm run build
+(cd backend && uv run --group dev pytest)
+(cd frontend && npm run lint)
+(cd frontend && npm run build)
+```
+
+Or run the Docker based backend test target from the repository root:
+
+```sh
+make test-backend
 ```
 
 The frontend package does not yet include a UI test runner, so `make test-frontend` cannot run interaction tests until one is configured.
+
+### Test coverage and isolation
+
+Backend endpoint tests replace the application's database dependency with a fresh, in-memory SQLite database for each test. This exercises the FastAPI routes, SQLAlchemy persistence, response codes, validation, duplicate handling, pagination, and missing-record behavior without reading or changing the Compose PostgreSQL volume. Seed parsing and idempotency are tested separately with the same isolated database approach. The Compose PostgreSQL service is verified through the integrated startup and manual workflow described below; the pytest suite does not connect to PostgreSQL.
 
 Useful checks and container shell access:
 
@@ -211,4 +232,13 @@ The `psql` command uses variables from the current shell; alternatively run `doc
 
 ## Validation status
 
-Use `docker compose config --quiet` to validate Compose syntax, `make build` to build images, and `make up`, `make ps`, and the URLs above to validate a running stack. The frontend health indicator provides an end-to-end browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query.
+The backend pytest suite uses isolated SQLite databases and can be run with `make test-backend`. The frontend production build and lint checks can be run with the commands above. `docker compose config --quiet` validates the Compose file; use `make up`, `make ps`, and the URLs above to check a running stack. The frontend health indicator provides a browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query.
+
+## Design decisions and known limitations
+
+- The dataset's positive `udi` is the record identifier, which keeps API paths aligned with the source CSV. It is immutable after creation.
+- Pydantic schemas reject invalid API inputs before persistence, while SQLAlchemy constraints provide a second validation layer in the database.
+- The repository layer owns database queries; the FastAPI routes translate expected validation, conflict, and missing-record conditions into HTTP responses.
+- SQLite fixtures make backend tests independent and safe to run against a developer's data. They do not replace the Compose PostgreSQL integration check.
+- The frontend has no automated interaction test runner yet. Verify create, view, edit, delete, confirmation cancellation, and validation feedback in the browser using the manual workflow above.
+- Screenshots must be captured from a running browser session with sample data loaded. The current workspace has no browser executable or screenshot automation installed, so screenshots could not be generated here; do not treat this item as complete until `docs/screenshots/` contains the populated table, record details, and create or edit form images.

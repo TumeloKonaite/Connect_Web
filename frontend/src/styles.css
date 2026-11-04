@@ -78,7 +78,19 @@ h1 { margin-bottom: 7px; font: 700 clamp(27px, 3.1vw, 37px) Manrope, sans-serif;
 .footer { display: flex; justify-content: center; gap: 8px; padding: 15px; color: #a5afa9; font: 8px 'DM Mono', monospace; letter-spacing: 1.1px; }.footer span { color: #6f9b7f; }
 
 .machine-workspace { margin-top: 37px; }
-.add-record-button { width: auto; min-height: 36px; padding: 0 14px; }
+.entry-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 0 -19px; border-bottom: 1px solid #e8eeea; }
+.entry-tab { padding: 10px 7px; border: 0; border-bottom: 2px solid transparent; color: #819088; background: #fff; font: 500 9px 'DM Sans', sans-serif; cursor: pointer; }
+.entry-tab--active { border-bottom-color: #1b7657; color: #1b7657; font-weight: 600; }
+.entry-tab:disabled { color: #b7c0bb; cursor: not-allowed; }
+.entry-panel { margin-top: 16px; }
+.bulk-entry-panel { display: flex; flex-direction: column; gap: 12px; }
+.bulk-entry-panel p { margin: 0; color: #7e8c84; font-size: 10px; line-height: 1.5; }
+.bulk-file-picker { display: flex; flex-direction: column; gap: 7px; color: #718078; font-size: 9px; }
+.bulk-file-picker input { width: 100%; color: #53665c; font: 9px 'DM Sans', sans-serif; }
+.bulk-file-hint { color: #9aa59f; font: 8px 'DM Mono', monospace; }
+.csv-import-result p { margin: 0; }
+.csv-import-result ul { margin: 7px 0 0; padding-left: 18px; }
+.csv-import-result li { margin-top: 3px; }
 .detail-card { margin-bottom: 13px; padding: 18px 20px; border: 1px solid #e6ece8; border-radius: 7px; background: #fff; }
 .detail-card .form-heading { margin-bottom: 13px; }
 .detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
@@ -87,10 +99,6 @@ h1 { margin-bottom: 7px; font: 700 clamp(27px, 3.1vw, 37px) Manrope, sans-serif;
 .pagination { display: flex; align-items: center; gap: 9px; color: #728078; }
 .pagination button { padding: 5px 8px; border: 1px solid #e3ebe5; border-radius: 4px; color: #39775b; background: #fff; font: 500 8px 'DM Sans', sans-serif; cursor: pointer; }
 .pagination button:disabled { color: #aab4ae; cursor: default; }
-.section-heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 16px; }
-.section-heading .eyebrow { margin-bottom: 8px; }
-.section-heading h2 { margin: 0 0 5px; font: 700 22px Manrope, sans-serif; letter-spacing: -.7px; }
-.section-intro { margin: 0; color: #84918b; font-size: 11px; }
 .record-count { padding: 7px 10px; border: 1px solid #e3ebe5; border-radius: 4px; color: #728078; background: #fff; font: 8px 'DM Mono', monospace; letter-spacing: .8px; }
 .machine-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 13px; align-items: start; }
 .machine-form, .records-panel { border: 1px solid #e6ece8; border-radius: 7px; background: #fff; }
@@ -141,8 +149,8 @@ h1 { margin-bottom: 7px; font: 700 clamp(27px, 3.1vw, 37px) Manrope, sans-serif;
   .hero-content h2 { font-size: 22px; }.hero-content p { max-width: 240px; }.hero-art { top: 37px; right: -70px; opacity: .34; }
   .metric-card { padding: 14px 13px; }.metric-icon { width: 25px; height: 25px; }.metric-caption { font-size: 6px; letter-spacing: 1px; }.metric-value { margin-top: 14px; font-size: 30px; }.metric-card h3 { font-size: 10px; }.metric-card p { max-width: 115px; font-size: 8px; line-height: 1.5; }.metric-rule { left: 13px; right: 13px; bottom: 15px; }.signal-spark { left: 13px; right: 13px; bottom: 14px; gap: 3px; }
   .connection-card { padding: 16px; }.empty-card { gap: 12px; padding: 16px; }.empty-symbol { width: 38px; height: 38px; }.empty-card h3 { font-size: 11px; }.empty-card p { font-size: 8px; }.footer { font-size: 7px; }
-  .section-heading { align-items: start; }.section-heading h2 { font-size: 19px; }.record-count { margin-top: 20px; }.machine-form { padding: 15px; }
+  .record-count { margin-top: 20px; }.machine-form { padding: 15px; }
+  .entry-tabs { margin-right: -15px; margin-left: -15px; }
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .section-heading { flex-direction: column; gap: 12px; }
   .table-footer { align-items: flex-start; flex-direction: column; gap: 9px; }
 }

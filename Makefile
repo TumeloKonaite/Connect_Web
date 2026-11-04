@@ -48,7 +48,7 @@ test: ## Run backend and frontend test targets
 	@$(MAKE) --no-print-directory test-frontend
 
 test-backend: ## Run backend pytest suite in a temporary test container
-	@$(COMPOSE) run --rm --build --no-deps -v "$(CURDIR)/backend/tests:/app/tests:ro" -w /app backend sh -c 'uv sync --frozen && uv run --no-sync pytest /app/tests' || { echo "Error: Backend tests failed. Ensure Docker is running and backend dependencies can be installed." >&2; exit 1; }
+	@$(COMPOSE) run --rm --build --no-deps -e DEBUG=false -v "$(CURDIR)/backend/tests:/app/tests:ro" -w /app backend sh -c 'uv sync --frozen && uv run --no-sync pytest /app/tests' || { echo "Error: Backend tests failed. Ensure Docker is running and backend dependencies can be installed." >&2; exit 1; }
 
 seed: ## Import the bundled machine CSV into PostgreSQL (idempotent)
 	@$(COMPOSE) exec backend uv run --no-sync python -m app.seed || { echo "Error: Could not seed machine records. Start services with 'make up' and check migrations and database connectivity." >&2; exit 1; }
