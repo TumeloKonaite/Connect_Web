@@ -4,7 +4,7 @@ COMPOSE = docker compose -f $(CURDIR)/docker-compose.yml -p $(COMPOSE_PROJECT_NA
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps backend-logs frontend-logs db-logs \
-	backend-shell frontend-shell test test-backend test-frontend seed clean clean-data
+	backend-shell frontend-shell test test-backend test-frontend seed seed-devices clean clean-data
 
 
 help: ## Show this help message
@@ -52,6 +52,9 @@ test-backend: ## Run backend pytest suite in a temporary test container
 
 seed: ## Import the bundled machine CSV into PostgreSQL (idempotent)
 	@$(COMPOSE) exec backend uv run --no-sync python -m app.seed || { echo "Error: Could not seed machine records. Start services with 'make up' and check migrations and database connectivity." >&2; exit 1; }
+
+seed-devices: ## Generate and import simulated device observations (idempotent)
+	@$(COMPOSE) exec backend uv run --no-sync python -m app.device_dataset || { echo "Error: Could not import device observations. Start services with 'make up' and check migrations and database connectivity." >&2; exit 1; }
 
 test-frontend: ## Run frontend tests if a test script is configured
 	@$(COMPOSE) run --rm --no-deps frontend sh -c 'node -e '\''const p = require("./package.json"); if (!p.scripts || !p.scripts.test) { console.error("Error: No frontend test runner is configured in frontend/package.json."); process.exit(2); }'\'' && npm test -- --run' || { echo "Error: Frontend tests failed. Check the frontend test runner and Docker configuration." >&2; exit 1; }

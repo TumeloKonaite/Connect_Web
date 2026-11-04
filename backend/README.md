@@ -47,6 +47,14 @@ To load the bundled sample data after migrations:
 uv run python -m app.seed
 ```
 
+To generate the simulated device time-series JSON and import it after machine records have been seeded:
+
+```sh
+uv run python -m app.device_dataset
+```
+
+The command writes `backend/data/device_observations.json` and prints counts of created devices, parameters, and observations. Add `--generate-only` to only generate the JSON. Four fixed demo devices are assigned by `(UDI - 1) modulo 4`; per-UDI timestamps start at 2025-01-01 00:00 UTC and advance by five minutes. The timestamps and device assignments are simulated and do not describe original collection times or real sensor deployments. Source measurements, units, product type, and source UDI are retained. Import requires the referenced machine records to exist and is idempotent.
+
 The seed command uses UDI as its idempotency key. Existing UDIs are skipped, so it is safe to run more than once.
 
 ## API overview
@@ -60,6 +68,9 @@ The seed command uses UDI as its idempotency key. Existing UDIs are skipped, so 
 | `PATCH` | `/api/machines/{udi}` | Partially update a record; UDI is immutable |
 | `DELETE` | `/api/machines/{udi}` | Delete a record; returns `204`, or `404` if missing |
 | `POST` | `/api/machines/import?filename=machines.csv` | Import raw CSV data (`text/csv`) |
+| `GET` | `/api/devices` | List devices ordered by device UID |
+| `GET` | `/api/devices/{device_uid}` | Get a device and its parameters |
+| `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, `limit`, and `offset` |
 
 Create and update requests are validated. Machine type must be `L`, `M`, or `H`; failure indicators must be booleans; and speed, torque, and tool wear must be nonnegative.
 
