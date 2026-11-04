@@ -22,6 +22,7 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 - **Frontend:** React and TypeScript provide a machine records workspace for listing, creating, editing, and deleting machine data. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
 - **Backend:** FastAPI provides HTTP endpoints on port 8000. Its `/health` endpoint reports process health, and CORS is configured from `CORS_ORIGINS` for direct browser requests.
 - **Machine records API:** `POST`, `GET`, `PATCH`, and `DELETE` operations are available under `/api/machines`. The collection GET supports `limit` (default 100, maximum 500) and `offset` (default 0). Record identifiers use the dataset's positive `udi` value.
+- **Device API:** read-only endpoints list devices, return device parameters, and retrieve chronologically ordered observations filtered by parameter and optional timezone-aware start/end timestamps. Observation results support `limit` and `offset` pagination.
 - **Database:** PostgreSQL 16 stores application data. The backend reaches it at `db:5432` over the private Compose network. No host port is published. The named `connect-web-postgres-data` volume keeps data when containers are removed.
 - **Docker Compose:** builds the frontend and backend images, starts PostgreSQL, waits for database and API health checks before starting dependent services, and provides internal DNS names such as `backend` and `db`.
 - **Make:** provides consistent commands for common Compose operations.
@@ -35,6 +36,7 @@ Start PostgreSQL and the application services, then ensure migrations are curren
 ```sh
 make up
 make seed
+make seed-devices
 ```
 
 `make seed` runs the importer inside the running backend container and prints processed, inserted, duplicate, invalid, and failed counts. Verify records in the API at <http://localhost:8000/api/machines> or in Swagger at <http://localhost:8000/docs>.
@@ -42,6 +44,14 @@ make seed
 The import uses `udi` as its idempotency key. A row with a UDI already in the database is reported as a duplicate and left unchanged. Missing values, malformed numbers or booleans, unsupported types, and values that violate model constraints are reported as invalid and skipped. Each valid row commits independently; a database error rolls back only that row and later rows continue. A missing required CSV header stops the import with an actionable error. Re-running `make seed` is safe and does not overwrite development records.
 
 The prerequisites are Docker with Compose v2, a running database service, and the current Alembic migrations. `make up` starts the database and applies migrations through the backend entry command; if services were stopped, start them before running the seed target.
+
+## Simulated device time series
+
+The device dataset workflow preserves `backend/data/machine_records.csv` and generates `backend/data/device_observations.json` from it. Run `make seed-devices` with the stack running to generate and import it. To generate JSON without importing, run `python -m app.device_dataset --generate-only` from `backend/` (or pass `--csv` and `--json` paths). The JSON is validated before it is written or imported; import is transactional and repeat runs skip existing `(parameter, source_udi)` observations.
+
+Four demonstration devices are assigned deterministically by `(UDI - 1) modulo 4`. Each device has five numeric parameters (air temperature in K, process temperature in K, rotational speed in rpm, torque in Nm, and tool wear in minutes) and two text parameters (product type and machine failure status). Machine failure booleans become `normal` or `failure`. Observations retain their source UDI. The source CSV measurements and categorical values are unchanged in the original machine records.
+
+Timestamps are simulated in UTC: UDI 1 starts at 2025-01-01 00:00 UTC, and each subsequent UDI advances the generated schedule by five minutes. Records assigned to any one device therefore have a strictly increasing schedule. These are demonstration timestamps, not collection times, and the device assignment does not represent real physical monitoring hardware. The generated JSON metadata states these assumptions explicitly. `devices`, `parameters`, and `observations` are stored separately; an observation reaches its device through its parameter and may point back to `machine_records.udi`.
 
 ## Prerequisites
 
@@ -99,6 +109,9 @@ Use the Swagger UI at <http://localhost:8000/docs> to try the machine record end
 | `PATCH` | `/api/machines/{udi}` | Partially update a record (`200`, or `404` if missing) |
 | `DELETE` | `/api/machines/{udi}` | Delete a record (`204`, or `404` if missing) |
 | `POST` | `/api/machines/import?filename=machines.csv` | Import CSV rows and return inserted, duplicate, invalid, and failed counts |
+| `GET` | `/api/devices` | List devices ordered by device UID |
+| `GET` | `/api/devices/{device_uid}` | Get a device and its parameters |
+| `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, `limit`, and `offset` |
 
 Example create request body:
 
@@ -232,7 +245,7 @@ The `psql` command uses variables from the current shell; alternatively run `doc
 
 ## Validation status
 
-The backend pytest suite uses isolated SQLite databases and can be run with `make test-backend`. The frontend production build and lint checks can be run with the commands above. `docker compose config --quiet` validates the Compose file; use `make up`, `make ps`, and the URLs above to check a running stack. The frontend health indicator provides a browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query.
+The backend pytest suite uses isolated SQLite databases and can be run with `make test-backend`. The frontend production build and lint checks can be run with the commands above. `docker compose config --quiet` validates the Compose file; use `make up`, `make ps`, and the URLs above to check a running stack. The frontend health indicator provides a browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query. Use Swagger at <http://localhost:8000/docs> to explore device endpoints. For example, `GET /api/devices/demo-device-1/observations?parameter=air_temperature&start=2025-01-01T00:00:00Z&end=2025-01-02T00:00:00Z` returns observations in timestamp order.
 
 ## Design decisions and known limitations
 
