@@ -77,11 +77,18 @@ def list_device_observations(
     parameter: Annotated[str | None, Query(min_length=1)] = None,
     start: datetime | None = None,
     end: datetime | None = None,
+    min_value: float | None = None,
+    max_value: float | None = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[Observation]:
     """Return chronologically ordered observations with optional filters."""
     _validate_time_range(start, end)
+    if min_value is not None and max_value is not None and min_value > max_value:
+        raise HTTPException(
+            status_code=422,
+            detail="min_value must be less than or equal to max_value",
+        )
     try:
         parameter_statement = select(Parameter.id).join(Device).where(
             Device.device_uid == device_uid
@@ -96,6 +103,14 @@ def list_device_observations(
                 )
                 detail = "Device not found" if device_exists is None else "Parameter not found"
                 raise HTTPException(status_code=404, detail=detail)
+            parameter_type = db.scalar(
+                parameter_statement.where(Parameter.name == parameter).with_only_columns(Parameter.data_type)
+            )
+            if parameter_type == "text" and (min_value is not None or max_value is not None):
+                raise HTTPException(
+                    status_code=422,
+                    detail="min_value and max_value can only be used with numeric parameters",
+                )
             statement = select(Observation).where(Observation.parameter_id == parameter_id)
         else:
             device_id = db.scalar(select(Device.id).where(Device.device_uid == device_uid))
@@ -110,6 +125,10 @@ def list_device_observations(
             statement = statement.where(Observation.observed_at >= start)
         if end is not None:
             statement = statement.where(Observation.observed_at <= end)
+        if min_value is not None:
+            statement = statement.where(Observation.numeric_value >= min_value)
+        if max_value is not None:
+            statement = statement.where(Observation.numeric_value <= max_value)
         statement = statement.order_by(Observation.observed_at, Observation.id)
         return list(db.scalars(statement.limit(limit).offset(offset)))
     except HTTPException:

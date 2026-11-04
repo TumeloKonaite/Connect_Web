@@ -22,7 +22,7 @@ Connect_Web is a development monorepo for a React and TypeScript web client, a F
 - **Frontend:** React and TypeScript provide a machine records workspace for listing, creating, editing, and deleting machine data. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
 - **Backend:** FastAPI provides HTTP endpoints on port 8000. Its `/health` endpoint reports process health, and CORS is configured from `CORS_ORIGINS` for direct browser requests.
 - **Machine records API:** `POST`, `GET`, `PATCH`, and `DELETE` operations are available under `/api/machines`. The collection GET supports `limit` (default 100, maximum 500) and `offset` (default 0). Record identifiers use the dataset's positive `udi` value.
-- **Device API:** read-only endpoints list devices, return device parameters, and retrieve chronologically ordered observations filtered by parameter and optional timezone-aware start/end timestamps. Observation results support `limit` and `offset` pagination.
+- **Device API:** read-only endpoints list devices, return device parameters, and retrieve chronologically ordered observations filtered by parameter and optional timezone-aware start/end timestamps. Numeric parameters also support inclusive `min_value` and `max_value` filters. Observation results support `limit` and `offset` pagination.
 - **Database:** PostgreSQL 16 stores application data. The backend reaches it at `db:5432` over the private Compose network. No host port is published. The named `connect-web-postgres-data` volume keeps data when containers are removed.
 - **Docker Compose:** builds the frontend and backend images, starts PostgreSQL, waits for database and API health checks before starting dependent services, and provides internal DNS names such as `backend` and `db`.
 - **Make:** provides consistent commands for common Compose operations.
@@ -111,7 +111,9 @@ Use the Swagger UI at <http://localhost:8000/docs> to try the machine record end
 | `POST` | `/api/machines/import?filename=machines.csv` | Import CSV rows and return inserted, duplicate, invalid, and failed counts |
 | `GET` | `/api/devices` | List devices ordered by device UID |
 | `GET` | `/api/devices/{device_uid}` | Get a device and its parameters |
-| `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, `limit`, and `offset` |
+| `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, numeric `min_value`/`max_value`, `limit`, and `offset` |
+
+Observation requests select a parameter by its `name` within the device (for example, `parameter=air_temperature`). The device detail endpoint returns each parameter's `id`, `name`, and `data_type`; parameter names are unique within a device. Numeric `min_value` and `max_value` boundaries are inclusive, can be used independently or together, and are applied in the database before pagination. They are supported only for numeric parameters; text parameter requests using either filter and ranges where `min_value` exceeds `max_value` return HTTP 422. `start` and `end` are inclusive, timezone-aware timestamps. Results are ordered by timestamp and observation ID.
 
 Example create request body:
 
