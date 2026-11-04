@@ -104,6 +104,55 @@ def test_observations_filter_parameter_and_time_and_sort_chronologically(
     assert client.get(
         "/api/devices/demo-device-1/observations", params={"parameter": "unknown"}
     ).status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("filters", "expected"),
+    [
+        ({"min_value": 299}, [299.0]),
+        ({"max_value": 298}, [298.0]),
+        ({"min_value": 298, "max_value": 299}, [298.0, 299.0]),
+        ({"min_value": 300}, []),
+        ({"min_value": 299, "max_value": 299}, [299.0]),
+    ],
+)
+def test_numeric_value_filters_are_inclusive_and_paginated_after_filtering(
+    client: TestClient, filters: dict[str, int], expected: list[float]
+) -> None:
+    add_device_data()
+    response = client.get(
+        "/api/devices/demo-device-1/observations",
+        params={"parameter": "air_temperature", **filters},
+    )
+    assert response.status_code == 200
+    assert [row["numeric_value"] for row in response.json()] == expected
+
+
+def test_value_filters_validate_ranges_and_reject_text_parameters(client: TestClient) -> None:
+    add_device_data()
+    base = "/api/devices/demo-device-1/observations"
+    assert client.get(base, params={"min_value": 2, "max_value": 1}).status_code == 422
+    text_filter = client.get(base, params={"parameter": "status", "min_value": 1})
+    assert text_filter.status_code == 422
+    assert "numeric parameters" in text_filter.json()["detail"]
+    text_observations = client.get(base, params={"parameter": "status"})
+    assert text_observations.status_code == 200
+    assert text_observations.json()[0]["text_value"] == "normal"
+
+
+def test_numeric_and_time_filters_compose(client: TestClient) -> None:
+    add_device_data()
+    response = client.get(
+        "/api/devices/demo-device-1/observations",
+        params={
+            "parameter": "air_temperature",
+            "start": "2025-01-01T00:02:00Z",
+            "min_value": 298,
+            "max_value": 299,
+        },
+    )
+    assert response.status_code == 200
+    assert [row["numeric_value"] for row in response.json()] == [299.0]
     assert client.get(
         "/api/devices/missing/observations"
     ).status_code == 404
