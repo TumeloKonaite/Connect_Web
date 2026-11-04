@@ -1,0 +1,1 @@
+"""Machine record application services."""

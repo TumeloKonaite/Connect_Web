@@ -1,4 +1,4 @@
-"""Machine records router for creating, listing, updating, and deleting records."""
+"""CRUD endpoints for machine records."""
 
 from typing import Annotated
 
@@ -67,7 +67,9 @@ def list_machine_records(
     summary="Get a machine record",
     responses={404: {"description": "Machine record not found"}},
 )
-def get_machine_record(udi: Annotated[int, Path(gt=0)], db: DbSession) -> MachineRecordResponse:
+def get_machine_record(
+    udi: Annotated[int, Path(gt=0)], db: DbSession
+) -> MachineRecordResponse:
     """Return one machine record by its positive UDI."""
     try:
         row = MachineRecordRepository(db).get(udi)
@@ -86,7 +88,9 @@ def get_machine_record(udi: Annotated[int, Path(gt=0)], db: DbSession) -> Machin
     responses={404: {"description": "Machine record not found"}},
 )
 def update_machine_record(
-    udi: Annotated[int, Path(gt=0)], payload: MachineRecordUpdate, db: DbSession
+    udi: Annotated[int, Path(gt=0)],
+    payload: MachineRecordUpdate,
+    db: DbSession,
 ) -> MachineRecordResponse:
     """Update fields supplied in the request while preserving omitted values."""
     changes = payload.model_dump(exclude_unset=True)
@@ -111,7 +115,9 @@ def update_machine_record(
     summary="Delete a machine record",
     responses={404: {"description": "Machine record not found"}},
 )
-def delete_machine_record(udi: Annotated[int, Path(gt=0)], db: DbSession) -> Response:
+def delete_machine_record(
+    udi: Annotated[int, Path(gt=0)], db: DbSession
+) -> Response:
     """Delete a machine record by UDI."""
     repository = MachineRecordRepository(db)
     try:
