@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Connect Web login page</title>
+  <desc id="desc">A local visual reference of the Connect Web sign-in screen.</desc>
+  <rect width="1440" height="900" fill="#f7f9f7"/>
+  <rect width="1440" height="70" fill="#fff"/>
+  <path d="M0 69.5h1440" stroke="#e6ece8"/>
+  <rect x="48" y="18" width="34" height="34" rx="6" fill="#28684c"/>
+  <text x="65" y="42" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="21" font-weight="700">C</text>
+  <text x="92" y="42" fill="#294238" font-family="Arial,sans-serif" font-size="21" font-weight="700">connect<tspan fill="#70a889">web</tspan></text>
+  <text x="720" y="40" text-anchor="middle" fill="#718078" font-family="Arial,sans-serif" font-size="10" letter-spacing="2">FACTORY MONITORING</text>
+  <rect x="1347" y="20" width="44" height="30" rx="15" fill="#edf3ef"/>
+  <text x="1369" y="40" text-anchor="middle" fill="#28684c" font-family="Arial,sans-serif" font-size="11" font-weight="700">CW</text>
+  <rect x="525" y="190" width="390" height="440" rx="9" fill="#fff" stroke="#e6ece8"/>
+  <text x="562" y="245" fill="#28684c" font-family="Arial,sans-serif" font-size="10" letter-spacing="1.8">FACTORY MONITORING</text>
+  <path d="M694 241h28" stroke="#70a889" stroke-width="2"/>
+  <text x="562" y="293" fill="#294238" font-family="Arial,sans-serif" font-size="31" font-weight="700">Welcome back</text>
+  <text x="562" y="324" fill="#718078" font-family="Arial,sans-serif" font-size="14">Sign in to access your production data.</text>
+  <text x="562" y="371" fill="#718078" font-family="Arial,sans-serif" font-size="12">Email address</text>
+  <rect x="562" y="382" width="316" height="42" rx="4" fill="#fbfcfb" stroke="#dfe8e2"/>
+  <text x="575" y="408" fill="#9aa69f" font-family="Arial,sans-serif" font-size="13">demo@example.com</text>
+  <text x="562" y="458" fill="#718078" font-family="Arial,sans-serif" font-size="12">Password</text>
+  <rect x="562" y="469" width="316" height="42" rx="4" fill="#fbfcfb" stroke="#dfe8e2"/>
+  <text x="575" y="495" fill="#9aa69f" font-family="Arial,sans-serif" font-size="13">••••••••••••</text>
+  <rect x="562" y="543" width="316" height="43" rx="5" fill="#28684c"/>
+  <text x="720" y="570" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="14" font-weight="700">Sign in</text>
+</svg>

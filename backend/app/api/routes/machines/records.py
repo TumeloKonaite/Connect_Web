@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api.routes.auth.auth import get_current_user
+from app.api.dependencies.auth import get_current_user
 from app.api.routes.machines.schemas import (
     MachineRecordCreate,
     MachineRecordResponse,

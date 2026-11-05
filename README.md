@@ -54,7 +54,49 @@ The backend stores an Argon2 password hash and skips an email that already exist
 
 ### Authentication
 
-Authentication uses `JWT_SECRET_KEY` for signing, `JWT_ALGORITHM` (HS256), and `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` (30). Set a unique secret in `.env` before using login. Generate one with `openssl rand -hex 32`. Create the local demo account using the command above, then use Swagger at <http://localhost:8000/docs> to call `POST /api/auth/login`. Submit `application/x-www-form-urlencoded` fields with `username=demo@example.com` and the password; the username field contains the email address. The response contains an access token and `bearer` token type. Click **Authorize** in Swagger and enter the token, or send `Authorization: Bearer <access_token>` on protected requests. The token expires after 30 minutes by default. `/health`, `/docs`, `/openapi.json`, and login are public. `/api/auth/me` and all `/api/devices` and `/api/machines` operations (including observation filters and CSV import) require a valid token. Missing, invalid, expired, or inactive-user credentials return `401` with `{"detail":"Could not validate credentials"}`. The same bearer header works for protected requests through Docker Compose at `http://localhost:8000`.
+The backend stores users in PostgreSQL and passwords as Argon2 hashes. Login exchanges an email and password for a signed JWT containing the user ID (`sub`) and expiration (`exp`). `JWT_SECRET_KEY` signs tokens, `JWT_ALGORITHM` defaults to HS256, and `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` defaults to 30. The React client keeps the token in memory, sends it as a bearer token on protected calls, and clears it on logout or when an API call returns 401. Refreshing the page therefore requires signing in again. No registration, refresh token, or persistent browser token storage is provided.
+
+Set a private secret in `.env` before use (generate one with `openssl rand -hex 32`). These are the authentication settings in `.env.example`:
+
+| Variable | Purpose | Example default |
+| --- | --- | --- |
+| `JWT_SECRET_KEY` | Private signing key; replace the template value | `replace-with-a-random-secret-before-use` |
+| `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes | `30` |
+
+Start Docker Compose and create the initial demo account. Supply a private password in your shell; do not commit it or put it in `.env.example`:
+
+```sh
+cp .env.example .env
+# Edit .env: replace POSTGRES_PASSWORD and JWT_SECRET_KEY with private values.
+make up
+make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
+```
+
+The command hashes the password before storage and leaves an existing account unchanged. User rows persist in the named PostgreSQL volume (`connect-web-postgres-data`) across `make down` and container restarts. Do not use `docker compose down -v` unless you intend to delete all local database data.
+
+Open <http://localhost:5173> and sign in with the demo email and password. A successful login opens the Sensor Data Explorer. Use **Log out** in the header to clear the in-memory token and return to login. If a token expires or a protected call otherwise receives 401, the client logs out automatically. The token is not restored after a browser refresh.
+
+For direct API login, `POST /api/auth/login` accepts URL-encoded form fields; the OAuth2 `username` field is the account email:
+
+```sh
+curl -sS -X POST http://localhost:8000/api/auth/login \\
+  -H 'Content-Type: application/x-www-form-urlencoded' \\
+  --data-urlencode 'username=demo@example.com' \\
+  --data-urlencode 'password=choose-a-local-password'
+```
+
+Copy `access_token` from the response. Use it on protected endpoints, and inspect the current account with `/api/auth/me`:
+
+```sh
+TOKEN='<access_token from login response>'
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/devices
+```
+
+`/api/auth/me` returns only the user's ID, email, and active status. It never returns a password or password hash. `/health`, `/docs`, `/openapi.json`, and `POST /api/auth/login` are public. `GET /api/auth/me`, every endpoint under `/api/devices`, and every endpoint under `/api/machines` (including CRUD and CSV import) require a valid token. Missing, invalid, expired, or inactive-user tokens receive 401. Authenticated device observation queries retain their date/value filters, ordering, and pagination.
+
+Run authentication and application API tests with `make test-backend`; this includes valid/invalid login, token claims and rejection, `/me`, unauthenticated device and machine routes, and authenticated CRUD/filter coverage. Run frontend tests with `make test-frontend` (or `cd frontend && npm test`); the tests cover visualizations and bearer handling for CSV upload. Run both suites using `make test`. These automated tests use isolated SQLite and mock browser requests, not the Compose PostgreSQL volume. To manually verify the full Compose path, follow the steps above, seed demonstration devices with `make seed-devices`, sign in at the frontend, retrieve the devices, then log out. Restart with `make restart` or `make down && make up` and verify the same account can sign in again.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
@@ -187,6 +229,8 @@ When a parameter has `data_type: "text"` (such as Product Type or Machine Failur
 - **Readable formatting:** Timestamps are formatted consistently with the numeric chart. Categorical values (such as `L`, `M`, `H`, `normal`, and `failure`) include clear visual badges while preserving readable text wrapping for long strings and explicit placeholders (`— (Not recorded)`) for empty or missing text values.
 
 ![Text observation table](docs/screenshots/text-observation-table.svg)
+
+The authentication interface references are kept alongside these application captures: [login page](docs/screenshots/login-page.svg) and [authenticated Sensor Data Explorer](docs/screenshots/authenticated-application.svg).
 
 ### Pagination and Visualization Limitations
 

@@ -3,40 +3,18 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.routes.auth.schemas import TokenResponse, UserResponse
+from app.api.dependencies.auth import get_current_user
 from app.core.security import verify_password
-from app.core.tokens import create_access_token, decode_access_token
+from app.core.tokens import create_access_token
 from app.repository.database.session import get_db
 from app.repository.database.tables import User
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
-
-
-def get_current_user(
-    token: Annotated[str | None, Depends(oauth2_scheme)],
-    db: Annotated[Session, Depends(get_db)],
-) -> User:
-    """Resolve the bearer token to an active database user."""
-    unauthorized = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    if token is None:
-        raise unauthorized
-    try:
-        user_id = decode_access_token(token)
-    except ValueError:
-        raise unauthorized from None
-    user = db.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active:
-        raise unauthorized
-    return user
 
 
 @router.post("/login", response_model=TokenResponse)

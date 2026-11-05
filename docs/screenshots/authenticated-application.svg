@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Authenticated Connect Web application</title>
+  <desc id="desc">A local visual reference of the authenticated Sensor Data Explorer.</desc>
+  <rect width="1440" height="900" fill="#f7f9f7"/>
+  <rect width="1440" height="70" fill="#fff"/><path d="M0 69.5h1440" stroke="#e6ece8"/>
+  <rect x="48" y="18" width="34" height="34" rx="6" fill="#28684c"/><text x="65" y="42" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="21" font-weight="700">C</text>
+  <text x="92" y="42" fill="#294238" font-family="Arial,sans-serif" font-size="21" font-weight="700">connect<tspan fill="#70a889">web</tspan></text>
+  <text x="720" y="40" text-anchor="middle" fill="#718078" font-family="Arial,sans-serif" font-size="10" letter-spacing="2">FACTORY MONITORING</text>
+  <text x="1193" y="41" fill="#718078" font-family="Arial,sans-serif" font-size="12">demo@example.com</text><text x="1333" y="41" fill="#28684c" font-family="Arial,sans-serif" font-size="12" font-weight="700">Log out</text>
+  <text x="72" y="132" fill="#28684c" font-family="Arial,sans-serif" font-size="10" letter-spacing="1.8">SENSOR DATA EXPLORER</text>
+  <text x="72" y="171" fill="#294238" font-family="Arial,sans-serif" font-size="30" font-weight="700">Explore your production data</text>
+  <text x="72" y="199" fill="#718078" font-family="Arial,sans-serif" font-size="14">Select a device, parameter, and time range to view observations.</text>
+  <rect x="72" y="230" width="1296" height="176" rx="8" fill="#fff" stroke="#e6ece8"/>
+  <text x="98" y="268" fill="#294238" font-family="Arial,sans-serif" font-size="16" font-weight="700">Query setup</text>
+  <text x="98" y="309" fill="#718078" font-family="Arial,sans-serif" font-size="11">DEVICE</text><rect x="98" y="320" width="280" height="42" rx="4" fill="#fbfcfb" stroke="#dfe8e2"/><text x="112" y="346" fill="#294238" font-family="Arial,sans-serif" font-size="13">Demo Device 1</text>
+  <text x="404" y="309" fill="#718078" font-family="Arial,sans-serif" font-size="11">PARAMETER</text><rect x="404" y="320" width="280" height="42" rx="4" fill="#fbfcfb" stroke="#dfe8e2"/><text x="418" y="346" fill="#294238" font-family="Arial,sans-serif" font-size="13">Air Temperature (K)</text>
+  <text x="710" y="309" fill="#718078" font-family="Arial,sans-serif" font-size="11">START</text><rect x="710" y="320" width="230" height="42" rx="4" fill="#fbfcfb" stroke="#dfe8e2"/><text x="724" y="346" fill="#294238" font-family="Arial,sans-serif" font-size="13">2025-01-01 00:00</text>
+  <text x="966" y="309" fill="#718078" font-family="Arial,sans-serif" font-size="11">END</text><rect x="966" y="320" width="230" height="42" rx="4" fill="#fbfcfb" stroke="#dfe8e2"/><text x="980" y="346" fill="#294238" font-family="Arial,sans-serif" font-size="13">2025-01-02 00:00</text>
+  <rect x="1219" y="320" width="121" height="42" rx="4" fill="#28684c"/><text x="1279" y="346" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="13" font-weight="700">View data</text>
+  <rect x="72" y="430" width="1296" height="390" rx="8" fill="#fff" stroke="#e6ece8"/><text x="98" y="471" fill="#294238" font-family="Arial,sans-serif" font-size="17" font-weight="700">Air Temperature</text><text x="98" y="495" fill="#718078" font-family="Arial,sans-serif" font-size="12">Showing observations · Min 296.8 K · Max 301.4 K · Avg 298.6 K</text>
+  <path d="M150 744H1310M150 675H1310M150 606H1310M150 537H1310" stroke="#e9efeb"/><text x="107" y="748" fill="#718078" font-family="Arial,sans-serif" font-size="11">296</text><text x="107" y="679" fill="#718078" font-family="Arial,sans-serif" font-size="11">298</text><text x="107" y="610" fill="#718078" font-family="Arial,sans-serif" font-size="11">300</text><text x="107" y="541" fill="#718078" font-family="Arial,sans-serif" font-size="11">302</text>
+  <path d="M155 701L280 658 405 674 530 615 655 636 780 588 905 609 1030 562 1155 584 1300 548" fill="none" stroke="#418664" stroke-width="3"/><g fill="#418664"><circle cx="155" cy="701" r="4"/><circle cx="280" cy="658" r="4"/><circle cx="405" cy="674" r="4"/><circle cx="530" cy="615" r="4"/><circle cx="655" cy="636" r="4"/><circle cx="780" cy="588" r="4"/><circle cx="905" cy="609" r="4"/><circle cx="1030" cy="562" r="4"/><circle cx="1155" cy="584" r="4"/><circle cx="1300" cy="548" r="4"/></g>
+  <text x="150" y="778" fill="#718078" font-family="Arial,sans-serif" font-size="11">00:00</text><text x="705" y="778" fill="#718078" font-family="Arial,sans-serif" font-size="11">12:00</text><text x="1270" y="778" fill="#718078" font-family="Arial,sans-serif" font-size="11">24:00</text>
+</svg>

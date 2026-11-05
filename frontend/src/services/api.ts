@@ -1,6 +1,6 @@
 import type { CsvImportResult, HealthResponse, MachineRecord, MachineRecordInput, MonitoringDevice, MonitoringDeviceDetail, Observation, ObservationFilters } from '../types/api'
 
-const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
+const configuredApiBase = ((import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/+$/, '')
 // Endpoint paths below already include `/api`. Accept older Compose values
 // such as `/api` or `http://localhost:8000/api` without doubling that prefix.
 const apiBaseUrl = configuredApiBase.replace(/\/api$/, '')
@@ -99,10 +99,18 @@ export const api = {
     const query = new URLSearchParams({ filename: file.name })
     const response = await fetch(`${apiBaseUrl}/api/machines/import?${query}`, {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'text/csv' },
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'text/csv',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: file,
     })
     if (!response.ok) {
+      if (response.status === 401) {
+        accessToken = null
+        onUnauthorized?.()
+      }
       let message = `Request failed (${response.status} ${response.statusText})`
       try {
         const payload = (await response.json()) as { detail?: unknown }
