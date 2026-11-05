@@ -57,6 +57,16 @@ The command writes `backend/data/device_observations.json` and prints counts of 
 
 The seed command uses UDI as its idempotency key. Existing UDIs are skipped, so it is safe to run more than once.
 
+## Create a demo user
+
+With the Compose stack running and migrations applied, create a demo account by providing credentials as Make variables:
+
+```sh
+make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
+```
+
+The command runs inside the backend container, hashes the password with Argon2 before saving, and skips insertion if that email already exists. It prints the email and status only; it never prints the supplied password or stored hash. Keep demo credentials private and use them only for local development.
+
 ## API overview
 
 | Method | Endpoint | Purpose |

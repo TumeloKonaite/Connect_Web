@@ -44,6 +44,14 @@ make seed-devices
 
 The import uses `udi` as its idempotency key. A row with a UDI already in the database is reported as a duplicate and left unchanged. Missing values, malformed numbers or booleans, unsupported types, and values that violate model constraints are reported as invalid and skipped. Each valid row commits independently; a database error rolls back only that row and later rows continue. A missing required CSV header stops the import with an actionable error. Re-running `make seed` is safe and does not overwrite development records.
 
+Create an initial demo account for future authentication work with `make up` running:
+
+```sh
+make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
+```
+
+The backend stores an Argon2 password hash and skips an email that already exists. Keep the password private; the command does not display it.
+
 The prerequisites are Docker with Compose v2, a running database service, and the current Alembic migrations. `make up` starts the database and applies migrations through the backend entry command; if services were stopped, start them before running the seed target.
 
 ## Simulated device time series
