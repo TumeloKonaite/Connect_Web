@@ -84,6 +84,32 @@ def test_device_detail_includes_parameters_and_missing_device_is_404(
     assert client.get("/api/devices/missing").status_code == 404
 
 
+def test_device_detail_returns_empty_parameter_list_for_unconfigured_device(
+    client: TestClient,
+) -> None:
+    with TestingSessionLocal() as db:
+        db.add(Device(device_uid="empty-device", name="Empty", description="No sensors yet"))
+        db.commit()
+
+    response = client.get("/api/devices/empty-device")
+
+    assert response.status_code == 200
+    assert response.json()["parameters"] == []
+
+
+def test_device_detail_exposes_parameter_type_and_unit(client: TestClient) -> None:
+    add_device_data()
+
+    response = client.get("/api/devices/demo-device-1")
+
+    assert response.status_code == 200
+    parameters = {item["name"]: item for item in response.json()["parameters"]}
+    assert parameters["air_temperature"]["data_type"] == "numeric"
+    assert parameters["air_temperature"]["unit"] == "K"
+    assert parameters["status"]["data_type"] == "text"
+    assert parameters["status"]["unit"] is None
+
+
 def test_observations_filter_parameter_and_time_and_sort_chronologically(
     client: TestClient,
 ) -> None:
@@ -104,6 +130,33 @@ def test_observations_filter_parameter_and_time_and_sort_chronologically(
     assert client.get(
         "/api/devices/demo-device-1/observations", params={"parameter": "unknown"}
     ).status_code == 404
+
+
+def test_observation_time_boundaries_are_inclusive_and_empty_ranges_return_empty(
+    client: TestClient,
+) -> None:
+    add_device_data()
+    response = client.get(
+        "/api/devices/demo-device-1/observations",
+        params={
+            "parameter": "air_temperature",
+            "start": "2025-01-01T00:00:00Z",
+            "end": "2025-01-01T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    assert [item["numeric_value"] for item in response.json()] == [298.0]
+    empty = client.get(
+        "/api/devices/demo-device-1/observations",
+        params={
+            "parameter": "air_temperature",
+            "start": "2025-01-02T00:00:00Z",
+            "end": "2025-01-03T00:00:00Z",
+        },
+    )
+    assert empty.status_code == 200
+    assert empty.json() == []
 
 
 @pytest.mark.parametrize(

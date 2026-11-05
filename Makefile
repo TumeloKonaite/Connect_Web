@@ -11,7 +11,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; print "Usage: make <target>\n\nTargets:"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 build: ## Build all service images
-	@$(COMPOSE) build || { echohttps://github.com/TumeloKonaite/Connect_Web "Error: Docker Compose could not build the services. Check Docker is running and the Compose configuration is valid." >&2; exit 1; }
+	@$(COMPOSE) build || { echo "Error: Docker Compose could not build the services. Check Docker is running and the Compose configuration is valid." >&2; exit 1; }
 
 up: ## Build and start all services in the background
 	@$(COMPOSE) up --build -d || { echo "Error: Could not start the application. Check Docker is running and inspect logs with 'make logs'." >&2; exit 1; }
