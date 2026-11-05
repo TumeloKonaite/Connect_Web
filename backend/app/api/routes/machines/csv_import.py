@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.api.routes.auth.auth import get_current_user
 from app.api.routes.machines.schemas import CsvImportResponse
 from app.repository.database.session import get_db
 from app.services.machine_records.csv_import import (
@@ -15,7 +16,7 @@ from app.services.machine_records.csv_import import (
     import_machine_csv,
 )
 
-router = APIRouter(tags=["Machine CSV import"])
+router = APIRouter(tags=["Machine CSV import"], dependencies=[Depends(get_current_user)])
 DbSession = Annotated[Session, Depends(get_db)]
 MAX_CSV_BYTES = 5 * 1024 * 1024
 

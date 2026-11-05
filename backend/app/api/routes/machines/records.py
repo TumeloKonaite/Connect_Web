@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, st
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.api.routes.auth.auth import get_current_user
 from app.api.routes.machines.schemas import (
     MachineRecordCreate,
     MachineRecordResponse,
@@ -14,7 +15,7 @@ from app.api.routes.machines.schemas import (
 from app.repository.database.session import get_db
 from app.repository.machine_records.repository import MachineRecordRepository
 
-router = APIRouter(tags=["Machines"])
+router = APIRouter(tags=["Machines"], dependencies=[Depends(get_current_user)])
 DbSession = Annotated[Session, Depends(get_db)]
 
 

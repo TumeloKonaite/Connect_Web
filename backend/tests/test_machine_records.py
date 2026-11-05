@@ -9,9 +9,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.tokens import create_access_token
 from app.main import app
 from app.repository.database.base import Base
 from app.repository.database.session import get_db
+from app.repository.database.tables import User
 from app.repository.database.tables.machine_record import MachineRecord  # noqa: F401
 from app.services.machine_records.csv_import import FIELDS
 
@@ -36,10 +38,33 @@ def client() -> TestClient:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    with TestingSessionLocal() as db:
+        user = User(email="machine-tests@example.com", hashed_password="test-hash")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    test_client = TestClient(app)
+    test_client.headers["Authorization"] = f"Bearer {create_access_token(user.id)}"
+    yield test_client
+    test_client.close()
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
+
+
+def test_machine_routes_require_authentication(client: TestClient) -> None:
+    authorization = client.headers.pop("Authorization")
+    try:
+        routes = (
+            ("get", "/api/machines"),
+            ("post", "/api/machines"),
+            ("post", "/api/machines/import?filename=x.csv"),
+        )
+        for method, path in routes:
+            response = getattr(client, method)(path)
+            assert response.status_code == 401
+            assert response.json() == {"detail": "Could not validate credentials"}
+    finally:
+        client.headers["Authorization"] = authorization
 
 
 @pytest.fixture

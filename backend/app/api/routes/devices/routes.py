@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.routes.auth.auth import get_current_user
 from app.api.routes.devices.schemas import (
     DeviceResponse,
     DeviceSummaryResponse,
@@ -16,7 +17,9 @@ from app.api.routes.devices.schemas import (
 from app.repository.database.session import get_db
 from app.repository.database.tables import Device, Observation, Parameter
 
-router = APIRouter(prefix="/api/devices", tags=["Devices"])
+router = APIRouter(
+    prefix="/api/devices", tags=["Devices"], dependencies=[Depends(get_current_user)]
+)
 DbSession = Annotated[Session, Depends(get_db)]
 
 

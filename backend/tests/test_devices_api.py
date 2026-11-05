@@ -8,10 +8,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.tokens import create_access_token
 from app.main import app
 from app.repository.database.base import Base
 from app.repository.database.session import get_db
-from app.repository.database.tables import Device, Observation, Parameter
+from app.repository.database.tables import Device, Observation, Parameter, User
 
 engine = create_engine(
     "sqlite://",
@@ -33,8 +34,15 @@ def client() -> TestClient:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    with TestingSessionLocal() as db:
+        user = User(email="device-tests@example.com", hashed_password="test-hash")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    test_client = TestClient(app)
+    test_client.headers["Authorization"] = f"Bearer {create_access_token(user.id)}"
+    yield test_client
+    test_client.close()
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
 
@@ -59,6 +67,17 @@ def add_device_data() -> None:
         other.observations.append(Observation(observed_at=base, numeric_value=300.0))
         db.add_all([first, second])
         db.commit()
+
+
+def test_device_routes_require_authentication(client: TestClient) -> None:
+    authorization = client.headers.pop("Authorization")
+    try:
+        for path in ("/api/devices", "/api/devices/demo-device/observations"):
+            response = client.get(path)
+            assert response.status_code == 401
+            assert response.json() == {"detail": "Could not validate credentials"}
+    finally:
+        client.headers["Authorization"] = authorization
 
 
 def test_list_devices_is_ordered(client: TestClient) -> None:
