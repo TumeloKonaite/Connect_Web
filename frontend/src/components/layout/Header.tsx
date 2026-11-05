@@ -1,4 +1,4 @@
-export function Header() {
+export function Header({ userEmail, onLogout }: { userEmail?: string; onLogout?: () => void }) {
   return (
     <header className="topbar">
       <a className="brand" href="/" aria-label="Connect Web dashboard">
@@ -6,7 +6,7 @@ export function Header() {
         <span className="brand-name">connect<span>web</span></span>
       </a>
       <div className="topbar-label">FACTORY MONITORING</div>
-      <div className="user-badge" aria-label="Workspace">CW</div>
+      {userEmail ? <div className="header-account"><span>{userEmail}</span><button className="text-button" onClick={onLogout}>Log out</button></div> : <div className="user-badge" aria-label="Workspace">CW</div>}
     </header>
   )
 }

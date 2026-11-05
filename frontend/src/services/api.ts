@@ -5,6 +5,13 @@ const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+
 // such as `/api` or `http://localhost:8000/api` without doubling that prefix.
 const apiBaseUrl = configuredApiBase.replace(/\/api$/, '')
 
+type AuthUser = { id: number; email: string; is_active: boolean }
+let accessToken: string | null = null
+let onUnauthorized: (() => void) | null = null
+
+export function setAccessToken(token: string | null) { accessToken = token }
+export function setUnauthorizedHandler(handler: (() => void) | null) { onUnauthorized = handler }
+
 async function request<T>(
   path: string,
   options: { signal?: AbortSignal; method?: string; body?: unknown } = {},
@@ -13,6 +20,7 @@ async function request<T>(
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
+      ...(accessToken && path !== '/api/auth/login' ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -20,6 +28,10 @@ async function request<T>(
   })
 
   if (!response.ok) {
+    if (response.status === 401 && path !== '/api/auth/login') {
+      accessToken = null
+      onUnauthorized?.()
+    }
     let message = `Request failed (${response.status} ${response.statusText})`
     try {
       const payload = (await response.json()) as { detail?: unknown }
@@ -36,6 +48,19 @@ async function request<T>(
 }
 
 export const api = {
+  login: async (email: string, password: string) => {
+    const body = new URLSearchParams({ username: email, password })
+    const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+    })
+    if (!response.ok) {
+      let message = 'Unable to log in. Check your email and password.'
+      try { const payload = (await response.json()) as { detail?: unknown }; if (typeof payload.detail === 'string') message = payload.detail } catch { /* use fallback */ }
+      throw new Error(message)
+    }
+    return (await response.json()) as { access_token: string; token_type: string }
+  },
+  getCurrentUser: () => request<AuthUser>('/api/auth/me'),
   getHealth: (signal?: AbortSignal) => request<HealthResponse>('/api/health', { signal }),
   getMachines: (limit = 25, offset = 0, signal?: AbortSignal) =>
     request<MachineRecord[]>(`/api/machines?limit=${limit}&offset=${offset}`, { signal }),
