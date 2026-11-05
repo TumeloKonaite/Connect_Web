@@ -1,9 +1,23 @@
 """Persistence operations for machine records."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.repository.database.tables.machine_record import MachineRecord
+
+
+@dataclass
+class CsvPersistenceResult:
+    """Persistence outcomes keyed by source CSV line number."""
+
+    inserted: int = 0
+    duplicates: list[tuple[int, str]] = field(default_factory=list)
+    failures: list[tuple[int, str]] = field(default_factory=list)
 
 
 class MachineRecordRepository:
@@ -48,3 +62,63 @@ class MachineRecordRepository:
             return False
         self.db.delete(record)
         return True
+
+    def persist_csv_rows(
+        self, rows: list[tuple[int, dict[str, object]]]
+    ) -> CsvPersistenceResult:
+        """Persist parsed CSV rows efficiently, isolating failures by row."""
+        result = CsvPersistenceResult()
+        chunk_size = 500
+        for offset in range(0, len(rows), chunk_size):
+            chunk = rows[offset : offset + chunk_size]
+            try:
+                udis = [values["udi"] for _, values in chunk]
+                existing_udis = set(
+                    self.db.scalars(
+                        select(MachineRecord.udi).where(MachineRecord.udi.in_(udis))
+                    )
+                )
+            except SQLAlchemyError:
+                self.db.rollback()
+                result.failures.extend(
+                    (line_number, "database error while checking UDI")
+                    for line_number, _ in chunk
+                )
+                continue
+
+            to_insert: list[tuple[int, dict[str, object]]] = []
+            for line_number, values in chunk:
+                udi = values["udi"]
+                if udi in existing_udis:
+                    result.duplicates.append(
+                        (line_number, f"UDI {udi} already exists")
+                    )
+                else:
+                    to_insert.append((line_number, values))
+
+            if not to_insert:
+                continue
+            self.db.add_all([MachineRecord(**values) for _, values in to_insert])
+            try:
+                self.db.commit()
+            except SQLAlchemyError:
+                self.db.rollback()
+                for line_number, values in to_insert:
+                    try:
+                        udi = values["udi"]
+                        if self.db.get(MachineRecord, udi) is not None:
+                            result.duplicates.append(
+                                (line_number, f"UDI {udi} already exists")
+                            )
+                            continue
+                        self.db.add(MachineRecord(**values))
+                        self.db.commit()
+                        result.inserted += 1
+                    except SQLAlchemyError:
+                        self.db.rollback()
+                        result.failures.append(
+                            (line_number, "database error while saving row")
+                        )
+            else:
+                result.inserted += len(to_insert)
+        return result

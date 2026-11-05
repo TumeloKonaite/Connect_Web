@@ -6,13 +6,12 @@ import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
+from io import StringIO
 from typing import TextIO
 
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.repository.database.tables.machine_record import MachineRecord
+from app.repository.machine_records.repository import MachineRecordRepository
 
 FIELDS = (
     "udi",
@@ -177,65 +176,23 @@ def import_machine_csv(file: TextIO, session: Session) -> CsvImportResult:
         seen_udis.add(udi)
         valid_rows.append((line_number, values))
 
-    # Use one lookup and commit per chunk so a normal 10k-row import does not
-    # issue thousands of sequential database round trips. Retry a failed
-    # chunk row by row to isolate any unexpected database constraint error.
-    chunk_size = 500
-    for offset in range(0, len(valid_rows), chunk_size):
-        chunk = valid_rows[offset : offset + chunk_size]
-        try:
-            udis = [values["udi"] for _, values in chunk]
-            existing_udis = set(
-                session.scalars(
-                    select(MachineRecord.udi).where(MachineRecord.udi.in_(udis))
-                )
-            )
-        except SQLAlchemyError:
-            session.rollback()
-            for line_number, _ in chunk:
-                result.counts["failed"] += 1
-                result.add_issue(line_number, "failed", "database error while checking UDI")
-            continue
-
-        to_insert: list[tuple[int, dict[str, object]]] = []
-        for line_number, values in chunk:
-            udi = values["udi"]
-            if udi in existing_udis:
-                result.counts["duplicate"] += 1
-                result.add_issue(line_number, "duplicate", f"UDI {udi} already exists")
-            else:
-                to_insert.append((line_number, values))
-
-        if not to_insert:
-            continue
-        session.add_all([MachineRecord(**values) for _, values in to_insert])
-        try:
-            session.commit()
-        except SQLAlchemyError:
-            session.rollback()
-            for line_number, values in to_insert:
-                try:
-                    udi = values["udi"]
-                    if session.get(MachineRecord, udi) is not None:
-                        result.counts["duplicate"] += 1
-                        result.add_issue(
-                            line_number, "duplicate", f"UDI {udi} already exists"
-                        )
-                        continue
-                    session.add(MachineRecord(**values))
-                    session.commit()
-                    result.counts["inserted"] += 1
-                except SQLAlchemyError:
-                    session.rollback()
-                    result.counts["failed"] += 1
-                    result.add_issue(
-                        line_number, "failed", "database error while saving row"
-                    )
-        else:
-            result.counts["inserted"] += len(to_insert)
+    persistence = MachineRecordRepository(session).persist_csv_rows(valid_rows)
+    if persistence.inserted:
+        result.counts["inserted"] += persistence.inserted
+    for line_number, message in persistence.duplicates:
+        result.counts["duplicate"] += 1
+        result.add_issue(line_number, "duplicate", message)
+    for line_number, message in persistence.failures:
+        result.counts["failed"] += 1
+        result.add_issue(line_number, "failed", message)
 
     result.issues.sort(key=lambda issue: issue.line)
     return result
+
+
+def import_machine_csv_text(contents: str, session: Session) -> CsvImportResult:
+    """Coordinate parsing and repository persistence for decoded CSV text."""
+    return import_machine_csv(StringIO(contents, newline=""), session)
 
 
 def import_csv(
