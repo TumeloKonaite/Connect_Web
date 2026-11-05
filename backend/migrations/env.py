@@ -7,7 +7,13 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.repository.database.base import Base
-from app.repository.database.tables import Device, MachineRecord, Observation, Parameter  # noqa: F401
+from app.repository.database.tables import (  # noqa: F401
+    Device,
+    MachineRecord,
+    Observation,
+    Parameter,
+    User,
+)
 
 config = context.config
 if config.config_file_name is not None:
@@ -35,7 +41,9 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(
+            connection=connection, target_metadata=target_metadata, compare_type=True
+        )
         with context.begin_transaction():
             context.run_migrations()
 
