@@ -20,7 +20,12 @@ APP_NAME=Connect Web API
 APP_ENVIRONMENT=development
 DEBUG=false
 CORS_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]
+JWT_SECRET_KEY=replace-with-a-random-secret-before-use
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
+
+Generate a local signing secret with `openssl rand -hex 32`. Never commit a real secret. Login accepts OAuth2 form data at `POST /api/auth/login`, using the email in `username`; it returns a bearer token valid for 30 minutes by default. Send it as `Authorization: Bearer <access_token>` to `GET /api/auth/me`. To try the flow in Swagger, create a demo user with the Make command documented in the root README, then use **Authorize** after logging in.
 
 Create the `connect_web` PostgreSQL database and user (or use your own names and update `DATABASE_URL`). Keep local credentials out of version control. If you use the repository's Docker Compose database, start only that service from the root with `docker compose up -d db`, and use host `localhost` and the published database port if you have configured one. The default Compose setup does not publish PostgreSQL's port, so for that setup use Compose to run the backend too.
 
@@ -81,6 +86,8 @@ The command runs inside the backend container, hashes the password with Argon2 b
 | `GET` | `/api/devices` | List devices ordered by device UID |
 | `GET` | `/api/devices/{device_uid}` | Get a device and its parameters |
 | `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, `limit`, and `offset` |
+| `POST` | `/api/auth/login` | Log in with email and password form fields (`username` contains email) |
+| `GET` | `/api/auth/me` | Get basic details for the active authenticated user |
 
 Create and update requests are validated. Machine type must be `L`, `M`, or `H`; failure indicators must be booleans; and speed, torque, and tool wear must be nonnegative.
 

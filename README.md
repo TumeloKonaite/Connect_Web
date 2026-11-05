@@ -52,6 +52,15 @@ make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choos
 
 The backend stores an Argon2 password hash and skips an email that already exists. Keep the password private; the command does not display it.
 
+### Authentication
+
+Authentication uses `JWT_SECRET_KEY` for signing, `JWT_ALGORITHM` (HS256), and `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` (30). Set a unique secret in `.env` before using login. Generate one with `openssl rand -hex 32`. Create the local demo account using the command above, then use Swagger at <http://localhost:8000/docs> to call `POST /api/auth/login`. Submit `application/x-www-form-urlencoded` fields with `username=demo@example.com` and the password; the username field contains the email address. The response contains an access token and `bearer` token type. Click **Authorize** in Swagger and enter the token, or send `Authorization: Bearer <access_token>` on `GET /api/auth/me` and future protected requests. The token expires after 30 minutes by default.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/auth/login` | Exchange email and password form data for a JWT bearer token |
+| `GET` | `/api/auth/me` | Return the authenticated user's ID, email, and active status |
+
 The prerequisites are Docker with Compose v2, a running database service, and the current Alembic migrations. `make up` starts the database and applies migrations through the backend entry command; if services were stopped, start them before running the seed target.
 
 ## Simulated device time series
@@ -92,7 +101,7 @@ Create a private local environment file from the committed template:
 cp .env.example .env
 ```
 
-Edit `.env` before use and replace `POSTGRES_PASSWORD` with a strong local development password. `.env` files are ignored by Git; do not commit credentials. Compose reads the root `.env` automatically. The template lists ports, database credentials, backend settings, CORS origins, and the frontend API base path. Defaults are also provided by Compose for most settings.
+Edit `.env` before use and replace `POSTGRES_PASSWORD` and `JWT_SECRET_KEY` with strong local values. `.env` files are ignored by Git; do not commit credentials. Compose reads the root `.env` automatically. The template lists ports, database credentials, backend settings, CORS origins, and the frontend API base path. Defaults are also provided by Compose for most settings.
 
 Build and start all services in the background:
 
