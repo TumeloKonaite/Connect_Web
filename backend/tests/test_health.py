@@ -20,6 +20,13 @@ def test_openapi_docs_are_available() -> None:
     assert schema_response.status_code == 200
     paths = schema_response.json()["paths"]
     assert "/health" in paths
-    assert "/api/machines" in paths
-    assert "/api/machines/import" in paths
-    assert "/api/machines/{udi}" in paths
+    assert "/api/machines" not in paths
+    assert "/api/devices" in paths
+
+
+def test_timestamped_observation_create_route_is_registered() -> None:
+    operation = app.openapi()["paths"]["/api/devices/{device_uid}/observations"]
+
+    assert "get" in operation
+    assert "post" in operation
+    assert "post" in app.openapi()["paths"]["/api/devices/import"]

@@ -36,12 +36,16 @@ class Parameter(Base):
 
     __tablename__ = "parameters"
     __table_args__ = (
-        CheckConstraint("data_type IN ('numeric', 'text')", name="ck_parameter_data_type"),
+        CheckConstraint(
+            "data_type IN ('numeric', 'text')", name="ck_parameter_data_type"
+        ),
         UniqueConstraint("device_id", "name", name="uq_parameter_device_name"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     data_type: Mapped[str] = mapped_column(String(10), nullable=False)
     unit: Mapped[str | None] = mapped_column(String(40))
@@ -67,11 +71,15 @@ class Observation(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    parameter_id: Mapped[int] = mapped_column(ForeignKey("parameters.id", ondelete="CASCADE"), nullable=False)
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    parameter_id: Mapped[int] = mapped_column(
+        ForeignKey("parameters.id", ondelete="CASCADE"), nullable=False
+    )
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     numeric_value: Mapped[float | None] = mapped_column(Float)
     text_value: Mapped[str | None] = mapped_column(String)
-    source_udi: Mapped[int | None] = mapped_column(ForeignKey("machine_records.udi", ondelete="SET NULL"))
+    source_udi: Mapped[int | None] = mapped_column(Integer)
     parameter: Mapped[Parameter] = relationship(back_populates="observations")
 
     @property
@@ -83,7 +91,11 @@ class Observation(Base):
         """Reject values that do not match their associated parameter type."""
         if self.parameter is None:
             raise ValueError("observation parameter is required")
-        if self.parameter.data_type == "numeric" and (self.numeric_value is None or self.text_value is not None):
+        if self.parameter.data_type == "numeric" and (
+            self.numeric_value is None or self.text_value is not None
+        ):
             raise ValueError("numeric parameter requires only numeric_value")
-        if self.parameter.data_type == "text" and (self.text_value is None or self.numeric_value is not None):
+        if self.parameter.data_type == "text" and (
+            self.text_value is None or self.numeric_value is not None
+        ):
             raise ValueError("text parameter requires only text_value")

@@ -3,7 +3,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+import math
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ParameterResponse(BaseModel):
@@ -44,3 +46,32 @@ class ObservationResponse(BaseModel):
     numeric_value: float | None
     text_value: str | None
     source_udi: int | None
+
+
+class ObservationCreate(BaseModel):
+    """Create one timestamped observation for a device parameter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parameter: str = Field(min_length=1)
+    observed_at: datetime
+    numeric_value: float | None = Field(default=None, allow_inf_nan=False)
+    text_value: str | None = None
+
+    @field_validator("parameter")
+    @classmethod
+    def strip_parameter(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("parameter must not be empty")
+        return value
+
+    @model_validator(mode="after")
+    def validate_observation_value(self) -> "ObservationCreate":
+        if (self.numeric_value is None) == (self.text_value is None):
+            raise ValueError("provide exactly one of numeric_value or text_value")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("observed_at must include a timezone")
+        if self.numeric_value is not None and not math.isfinite(self.numeric_value):
+            raise ValueError("numeric_value must be finite")
+        return self
