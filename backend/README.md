@@ -1,6 +1,6 @@
 # Backend
 
-FastAPI service for the machine records application. Run it independently from the React frontend when you want to work on the API. The frontend does not need to be running for API development or testing.
+FastAPI service for timestamped demo device data. Run it independently from the React frontend when you want to work on the API. The frontend does not need to be running for API development or testing.
 
 ## Requirements
 
@@ -8,7 +8,7 @@ FastAPI service for the machine records application. Run it independently from t
 - [`uv`](https://docs.astral.sh/uv/)
 - PostgreSQL 16 (local or another reachable PostgreSQL server)
 
-The API stores machine records in PostgreSQL. The backend process does not start PostgreSQL for you.
+The API stores devices, parameters, observations, and users in PostgreSQL. The backend process does not start PostgreSQL for you.
 
 ## Configure the database
 
@@ -25,7 +25,7 @@ JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
-Generate a local signing secret with `openssl rand -hex 32`. Never commit a real secret. Login accepts OAuth2 form data at `POST /api/auth/login`, using the email in `username`; it returns a bearer token valid for 30 minutes by default. Send it as `Authorization: Bearer <access_token>` to protected routes. `/health`, `/docs`, `/openapi.json`, and login are public; `/api/auth/me` and all machine record, CSV import, device, parameter, and observation routes require authentication. Missing, invalid, expired, or inactive-user tokens receive the same `401` response. To test in Swagger, create a demo user with the Make command documented in the root README, log in, then use **Authorize** and enter the returned access token. Protected requests through Docker Compose use the same header against `http://localhost:8000`.
+Generate a local signing secret with `openssl rand -hex 32`. Never commit a real secret. Login accepts OAuth2 form data at `POST /api/auth/login`, using the email in `username`; it returns a bearer token valid for 30 minutes by default. Send it as `Authorization: Bearer <access_token>` to protected routes. `/health`, `/docs`, `/openapi.json`, and login are public; `/api/auth/me` and device, parameter, and observation routes require authentication. Missing, invalid, expired, or inactive-user tokens receive the same `401` response. To test in Swagger, create a demo user with the Make command documented in the root README, log in, then use **Authorize** and enter the returned access token. Protected requests through Docker Compose use the same header against `http://localhost:8000`.
 
 Create the `connect_web` PostgreSQL database and user (or use your own names and update `DATABASE_URL`). Keep local credentials out of version control. If you use the repository's Docker Compose database, start only that service from the root with `docker compose up -d db`, and use host `localhost` and the published database port if you have configured one. The default Compose setup does not publish PostgreSQL's port, so for that setup use Compose to run the backend too.
 
@@ -44,23 +44,17 @@ The migration command creates or updates the schema before the server starts. Ke
 
 - Health: <http://localhost:8000/health>
 - OpenAPI documentation: <http://localhost:8000/docs>
-- Machine records: <http://localhost:8000/api/machines>
 
-To load the bundled sample data after migrations:
+Migrations `20261106_0005` and `20261106_0006` remove the legacy source-row table and observations linked to its inaccurate CSV schedule. Back up legacy rows or observations first if you need to retain them; manually entered observations and accounts remain stored.
 
-```sh
-uv run python -m app.seed
-```
-
-To generate the simulated device time-series JSON and import it after machine records have been seeded:
+To import the supplied timestamped device dataset:
 
 ```sh
-uv run python -m app.device_dataset
+uv run python -m app.scripts.device_dataset
 ```
 
-The command writes `backend/data/device_observations.json` and prints counts of created devices, parameters, and observations. Add `--generate-only` to only generate the JSON. Four fixed demo devices are assigned by `(UDI - 1) modulo 4`; per-UDI timestamps start at 2025-01-01 00:00 UTC and advance by five minutes. The timestamps and device assignments are simulated and do not describe original collection times or real sensor deployments. Source measurements, units, product type, and source UDI are retained. Import requires the referenced machine records to exist and is idempotent.
+The command validates and imports `backend/data/factory_sensor_demo_7days.json`, including its existing device definitions, values, and timestamps. It prints counts of created devices, parameters, and observations. Use `uv run python -m app.scripts.device_dataset --validate-only` to check the JSON without importing it, or provide `--dataset /path/to/file.json` for another compatible dataset. Observations without a source UDI are idempotent by parameter and timestamp.
 
-The seed command uses UDI as its idempotency key. Existing UDIs are skipped, so it is safe to run more than once.
 
 ## Create a demo user
 
@@ -77,23 +71,21 @@ The command runs inside the backend container, hashes the password with Argon2 b
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | Check that the API process is responding |
-| `GET` | `/api/machines?limit=25&offset=0` | List records ordered by UDI |
-| `POST` | `/api/machines` | Create a record; returns `201`, or `409` for a duplicate UDI |
-| `GET` | `/api/machines/{udi}` | Get one record; returns `404` if missing |
-| `PATCH` | `/api/machines/{udi}` | Partially update a record; UDI is immutable |
-| `DELETE` | `/api/machines/{udi}` | Delete a record; returns `204`, or `404` if missing |
-| `POST` | `/api/machines/import?filename=machines.csv` | Import raw CSV data (`text/csv`) |
 | `GET` | `/api/devices` | List devices ordered by device UID |
 | `GET` | `/api/devices/{device_uid}` | Get a device and its parameters |
-| `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, `limit`, and `offset` |
+| `GET` | `/api/devices/{device_uid}/observations` | Query chronological observations with time, value, and pagination filters |
+| `POST` | `/api/devices/{device_uid}/observations` | Add a timestamped numeric or text observation |
+| `POST` | `/api/devices/import` | Validate and import a nested devices/parameters/observations JSON batch |
 | `POST` | `/api/auth/login` | Log in with email and password form fields (`username` contains email) |
-| `GET` | `/api/auth/me` | Get basic details for the active authenticated user |
+| `GET` | `/api/auth/me` | Get details for the active authenticated user |
 
-Create and update requests are validated. Machine type must be `L`, `M`, or `H`; failure indicators must be booleans; and speed, torque, and tool wear must be nonnegative.
+Observation creation requires a configured parameter, a timezone-aware `observed_at`, and exactly one of `numeric_value` or `text_value`. The supplied value must match the parameter's configured type. Successful writes return `201`.
+
+Batch import uses the same nested JSON shape as `factory_sensor_demo_7days.json`. Send it as an authenticated `application/json` request; the operation is transactional and idempotent.
 
 ## Tests and lint
 
-Tests use isolated SQLite databases for endpoint and seed behavior, so they do not change PostgreSQL development data. From `backend/`:
+Tests use isolated SQLite databases for API behavior and JSON dataset validation/import, so they do not change PostgreSQL development data. From `backend/`:
 
 ```sh
 uv run --group dev pytest

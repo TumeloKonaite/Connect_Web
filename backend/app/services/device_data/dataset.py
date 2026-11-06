@@ -1,9 +1,8 @@
-"""Build and idempotently import simulated time-series observations."""
+"""Load, validate, and idempotently import timestamped device observations."""
 
-import csv
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,192 +10,190 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.repository.database.tables import Device, MachineRecord, Observation, Parameter
-from app.services.machine_records.csv_import import FIELDS, parse_record
-
-START_TIME = datetime(2025, 1, 1, tzinfo=timezone.utc)
-INTERVAL = timedelta(minutes=5)
-DEVICE_COUNT = 4
-DEVICE_ASSIGNMENT = "device index = (UDI - 1) modulo 4; assignments are simulated"
-PARAMETER_SPECS = (
-    ("air_temperature", "numeric", "K", "air_temperature"),
-    ("process_temperature", "numeric", "K", "process_temperature"),
-    ("rotational_speed", "numeric", "rpm", "rotational_speed"),
-    ("torque", "numeric", "Nm", "torque"),
-    ("tool_wear", "numeric", "min", "tool_wear"),
-    ("product_type", "text", None, "type"),
-    ("machine_failure", "text", None, "machine_failure"),
-)
+from app.repository.database.tables import Device, Observation, Parameter
 
 
-def transform_csv(source: Path | str) -> dict[str, Any]:
-    """Return reproducible devices, typed parameters and source-linked observations."""
-    with Path(source).open(newline="", encoding="utf-8-sig") as file:
-        reader = csv.DictReader(file)
-        if reader.fieldnames is None:
-            raise ValueError("CSV has no header")
-        rows = [parse_record(row) for row in reader]
+def _utc_timestamp(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
-    devices = [
-        {
-            "device_uid": f"demo-device-{index + 1}",
-            "name": f"Demonstration Machine Monitor {index + 1}",
-            "description": f"Simulated device for UDI modulo {DEVICE_COUNT} assignment.",
-            "parameters": [
-                {"name": name, "data_type": kind, "unit": unit, "observations": []}
-                for name, kind, unit, _ in PARAMETER_SPECS
-            ],
-        }
-        for index in range(DEVICE_COUNT)
-    ]
-    for row in rows:
-        device_index = (int(row["udi"]) - 1) % DEVICE_COUNT
-        timestamp = START_TIME + INTERVAL * (int(row["udi"]) - 1)
-        for parameter_index, (_, kind, _, field) in enumerate(PARAMETER_SPECS):
-            value = row[field]
-            if field == "machine_failure":
-                value = "failure" if value else "normal"
-            devices[device_index]["parameters"][parameter_index]["observations"].append(
-                {
-                    "observed_at": timestamp.isoformat(),
-                    "source_udi": row["udi"],
-                    "numeric_value": float(value) if kind == "numeric" else None,
-                    "text_value": str(value) if kind == "text" else None,
-                }
-            )
-    return {
-        "metadata": {
-            "simulated": True,
-            "source_dataset": "AI4I2020 machine_records.csv",
-            "device_assignment": DEVICE_ASSIGNMENT,
-            "timestamp_start_utc": START_TIME.isoformat(),
-            "timestamp_interval_minutes_per_UDI": int(INTERVAL.total_seconds() // 60),
-            "timestamp_note": "Generated schedule; not original collection times.",
-        },
-        "devices": devices,
-    }
+
+def _parse_observed_at(value: Any) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("observed_at must be an ISO timestamp string")
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("observed_at must be an ISO timestamp") from exc
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ValueError("observation timestamp must include a timezone")
+    return timestamp
+
+
+def _validate_observation(observation: Any, data_type: str) -> datetime:
+    if not isinstance(observation, dict):
+        raise ValueError("observation must be an object")
+    timestamp = _parse_observed_at(observation.get("observed_at"))
+    numeric = observation.get("numeric_value")
+    text = observation.get("text_value")
+    if data_type == "numeric":
+        if (not isinstance(numeric, int | float) or isinstance(numeric, bool)
+                or not math.isfinite(float(numeric)) or text is not None):
+            raise ValueError("numeric parameter requires a finite numeric_value only")
+    elif not isinstance(text, str) or numeric is not None:
+        raise ValueError("text parameter requires text_value only")
+    source_udi = observation.get("source_udi")
+    if source_udi is not None and (
+        not isinstance(source_udi, int) or isinstance(source_udi, bool) or source_udi <= 0
+    ):
+        raise ValueError("source_udi must be a positive integer")
+    return timestamp
+
+
+def load_dataset(source: Path | str) -> dict[str, Any]:
+    try:
+        payload = json.loads(Path(source).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"unable to read dataset JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("dataset JSON must contain an object")
+    validate_dataset(payload)
+    return payload
 
 
 def validate_dataset(payload: dict[str, Any]) -> None:
-    """Validate shape, parameter typing, finite numbers and timestamp ordering."""
+    """Validate dataset structure and every row, raising the first useful error."""
     if not isinstance(payload, dict) or not isinstance(payload.get("devices"), list):
         raise ValueError("dataset must contain a devices list")
-    device_uids: set[str] = set()
-    for device in payload["devices"]:
-        if not isinstance(device, dict) or not device.get("device_uid") or not device.get("name"):
-            raise ValueError("each device requires device_uid and name")
-        if device["device_uid"] in device_uids:
-            raise ValueError("device_uid values must be unique")
-        device_uids.add(device["device_uid"])
-        names: set[str] = set()
-        for parameter in device.get("parameters", []):
-            if parameter.get("data_type") not in {"numeric", "text"}:
-                raise ValueError("parameter data_type must be numeric or text")
-            if parameter.get("name") in names:
-                raise ValueError("parameter names must be unique per device")
-            names.add(parameter["name"])
-            previous: datetime | None = None
-            for observation in parameter.get("observations", []):
-                timestamp = datetime.fromisoformat(observation["observed_at"])
-                if timestamp.tzinfo is None:
-                    raise ValueError("observation timestamps must include a timezone")
-                if previous is not None and timestamp <= previous:
-                    raise ValueError("observations must be chronological")
-                previous = timestamp
-                numeric = observation.get("numeric_value")
-                text = observation.get("text_value")
-                if parameter["data_type"] == "numeric":
-                    if numeric is None or text is not None or not math.isfinite(float(numeric)):
-                        raise ValueError("numeric parameter requires a finite numeric_value only")
-                elif text is None or numeric is not None:
-                    raise ValueError("text parameter requires text_value only")
+    for device_index, device in enumerate(payload["devices"]):
+        try:
+            if not isinstance(device, dict):
+                raise ValueError("device must be an object")
+            if not isinstance(device.get("device_uid"), str) or not device["device_uid"].strip():
+                raise ValueError("device_uid is required")
+            if not isinstance(device.get("name"), str) or not device["name"].strip():
+                raise ValueError("name is required")
+            if device.get("description") is not None and not isinstance(device["description"], str):
+                raise ValueError("description must be text or null")
+            if not isinstance(device.get("parameters"), list):
+                raise ValueError("parameters must be a list")
+            for parameter_index, parameter in enumerate(device["parameters"]):
+                if not isinstance(parameter, dict) or not isinstance(parameter.get("name"), str) or not parameter["name"].strip():
+                    raise ValueError(f"parameter {parameter_index}: name is required")
+                if parameter.get("data_type") not in {"numeric", "text"}:
+                    raise ValueError(f"parameter {parameter_index}: data_type must be numeric or text")
+                if parameter.get("unit") is not None and not isinstance(parameter["unit"], str):
+                    raise ValueError(f"parameter {parameter_index}: unit must be text or null")
+                if not isinstance(parameter.get("observations"), list):
+                    raise ValueError(f"parameter {parameter_index}: observations must be a list")
+                previous = None
+                for observation_index, observation in enumerate(parameter["observations"]):
+                    timestamp = _validate_observation(observation, parameter["data_type"])
+                    if previous is not None and timestamp <= previous:
+                        raise ValueError(f"parameter {parameter_index}, observation {observation_index}: observations must be chronological")
+                    previous = timestamp
+        except ValueError as exc:
+            raise ValueError(f"device {device_index}: {exc}") from exc
 
 
-def write_json(payload: dict[str, Any], destination: Path | str) -> None:
-    validate_dataset(payload)
-    Path(destination).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-
-def import_dataset(payload: dict[str, Any], session: Session) -> dict[str, int]:
-    """Import atomically; existing device keys and source observations are kept."""
-    validate_dataset(payload)
-    created_devices = created_parameters = created_observations = 0
+def import_dataset(payload: dict[str, Any], session: Session) -> dict[str, Any]:
+    """Import valid rows, skip duplicates, and report row-level validation failures."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("devices"), list):
+        raise ValueError("dataset must contain a devices list")
+    counts = {"devices_created": 0, "parameters_created": 0, "observations_created": 0,
+              "rows_imported": 0, "rows_skipped": 0, "rows_rejected": 0, "errors": []}
+    seen_devices: set[str] = set()
     try:
-        source_udis = {
-            observation.get("source_udi")
-            for device_data in payload["devices"]
-            for parameter_data in device_data["parameters"]
-            for observation in parameter_data["observations"]
-            if observation.get("source_udi") is not None
-        }
-        known_udis = (
-            set(session.scalars(select(MachineRecord.udi).where(MachineRecord.udi.in_(source_udis))))
-            if source_udis
-            else set()
-        )
-        if source_udis != known_udis:
-            raise ValueError(f"source UDI does not exist in machine_records: {sorted(source_udis - known_udis)[:10]}")
-        for device_data in payload["devices"]:
-            device = session.scalar(select(Device).where(Device.device_uid == device_data["device_uid"]))
-            if device is None:
-                device = Device(
-                    device_uid=device_data["device_uid"],
-                    name=device_data["name"],
-                    description=device_data.get("description", ""),
-                )
-                session.add(device)
-                session.flush()
-                created_devices += 1
-            for parameter_data in device_data["parameters"]:
-                parameter = session.scalar(
-                    select(Parameter).where(
-                        Parameter.device_id == device.id,
-                        Parameter.name == parameter_data["name"],
-                    )
-                )
-                if parameter is None:
-                    parameter = Parameter(
-                        device_id=device.id,
-                        name=parameter_data["name"],
-                        data_type=parameter_data["data_type"],
-                        unit=parameter_data.get("unit"),
-                    )
-                    session.add(parameter)
+        for device_index, data in enumerate(payload["devices"]):
+            row = f"devices[{device_index}]"
+            try:
+                if not isinstance(data, dict):
+                    raise ValueError("device must be an object")
+                uid, name = data.get("device_uid"), data.get("name")
+                if not isinstance(uid, str) or not uid.strip():
+                    raise ValueError("device_uid is required")
+                if not isinstance(name, str) or not name.strip():
+                    raise ValueError("name is required")
+                if data.get("description") is not None and not isinstance(data["description"], str):
+                    raise ValueError("description must be text or null")
+                parameters_data = data.get("parameters")
+                if not isinstance(parameters_data, list):
+                    raise ValueError("parameters must be a list")
+                if uid in seen_devices:
+                    counts["rows_skipped"] += 1
+                    continue
+                seen_devices.add(uid)
+                device = session.scalar(select(Device).where(Device.device_uid == uid))
+                if device is None:
+                    device = Device(device_uid=uid, name=name.strip(), description=data.get("description") or "")
+                    session.add(device)
                     session.flush()
-                    created_parameters += 1
-                elif parameter.data_type != parameter_data["data_type"]:
-                    raise ValueError(f"parameter type conflict for {parameter.name}")
-                existing = set(session.scalars(select(Observation.source_udi).where(
-                    Observation.parameter_id == parameter.id,
-                    Observation.source_udi.is_not(None),
-                )))
-                latest = session.scalar(
-                    select(Observation.observed_at)
-                    .where(Observation.parameter_id == parameter.id)
-                    .order_by(Observation.observed_at.desc())
-                    .limit(1)
-                )
-                for observation_data in parameter_data["observations"]:
-                    if observation_data["source_udi"] in existing:
-                        continue
-                    observation = Observation(
-                        parameter_id=parameter.id,
-                        observed_at=datetime.fromisoformat(observation_data["observed_at"]),
-                        numeric_value=observation_data.get("numeric_value"),
-                        text_value=observation_data.get("text_value"),
-                        source_udi=observation_data.get("source_udi"),
-                    )
-                    observation.parameter = parameter
-                    observation.validate_value_type()
-                    if latest is not None and observation.observed_at <= latest:
-                        raise ValueError(f"observation timestamps are not increasing for {parameter.name}")
-                    session.add(observation)
-                    existing.add(observation_data["source_udi"])
-                    latest = observation.observed_at
-                    created_observations += 1
+                    counts["devices_created"] += 1
+                valid_device_rows = 0
+                for parameter_index, p_data in enumerate(parameters_data):
+                    prow = f"{row}.parameters[{parameter_index}]"
+                    try:
+                        if not isinstance(p_data, dict):
+                            raise ValueError("parameter must be an object")
+                        pname = p_data.get("name")
+                        if not isinstance(pname, str) or not pname.strip():
+                            raise ValueError("name is required")
+                        dtype = p_data.get("data_type")
+                        if dtype not in {"numeric", "text"}:
+                            raise ValueError("data_type must be numeric or text")
+                        if p_data.get("unit") is not None and not isinstance(p_data["unit"], str):
+                            raise ValueError("unit must be text or null")
+                        observations = p_data.get("observations")
+                        if not isinstance(observations, list):
+                            raise ValueError("observations must be a list")
+                        parameter = session.scalar(select(Parameter).where(Parameter.device_id == device.id, Parameter.name == pname.strip()))
+                        if parameter is None:
+                            parameter = Parameter(device_id=device.id, name=pname.strip(), data_type=dtype, unit=p_data.get("unit"))
+                            session.add(parameter)
+                            session.flush()
+                            counts["parameters_created"] += 1
+                        elif parameter.data_type != dtype:
+                            raise ValueError(f"parameter type conflict for {pname}")
+                        existing = list(session.scalars(select(Observation).where(Observation.parameter_id == parameter.id)))
+                        source_ids = {o.source_udi for o in existing if o.source_udi is not None}
+                        by_time = {_utc_timestamp(o.observed_at): o for o in existing}
+                        previous = None
+                        for observation_index, o_data in enumerate(observations):
+                            orow = f"{prow}.observations[{observation_index}]"
+                            try:
+                                observed_at = _validate_observation(o_data, dtype)
+                                if previous is not None and observed_at < previous:
+                                    raise ValueError("observations must be chronological")
+                                previous = observed_at
+                                source_udi = o_data.get("source_udi")
+                                timestamp_key = _utc_timestamp(observed_at)
+                                duplicate = source_udi in source_ids if source_udi is not None else timestamp_key in by_time
+                                if duplicate:
+                                    counts["rows_skipped"] += 1
+                                    continue
+                                observation = Observation(parameter_id=parameter.id, observed_at=observed_at,
+                                    numeric_value=o_data.get("numeric_value"), text_value=o_data.get("text_value"), source_udi=source_udi)
+                                session.add(observation)
+                                session.flush()
+                                counts["observations_created"] += 1
+                                valid_device_rows += 1
+                                if source_udi is not None: source_ids.add(source_udi)
+                                by_time[timestamp_key] = observation
+                            except ValueError as exc:
+                                counts["rows_rejected"] += 1
+                                counts["errors"].append({"row": orow, "reason": str(exc)})
+                        if not observations:
+                            valid_device_rows += 1
+                    except ValueError as exc:
+                        counts["rows_rejected"] += 1
+                        counts["errors"].append({"row": prow, "reason": str(exc)})
+                counts["rows_imported"] += valid_device_rows
+            except ValueError as exc:
+                counts["rows_rejected"] += 1
+                counts["errors"].append({"row": row, "reason": str(exc)})
         session.commit()
-    except (SQLAlchemyError, ValueError):
+    except SQLAlchemyError:
         session.rollback()
         raise
-    return {"devices_created": created_devices, "parameters_created": created_parameters,
-            "observations_created": created_observations}
+    return counts

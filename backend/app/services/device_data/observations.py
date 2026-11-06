@@ -2,12 +2,12 @@
 
 from datetime import datetime
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.repository.database.tables import Observation
 from app.repository.device_data.repository import DeviceDataRepository
 from app.services.device_data.validation import (
-    InvalidTimeRangeError,
     validate_time_range,
 )
 
@@ -67,3 +67,40 @@ def list_device_observations(
         limit=limit,
         offset=offset,
     )
+
+
+def create_device_observation(
+    db: Session,
+    *,
+    device_uid: str,
+    parameter_name: str,
+    observed_at: datetime,
+    numeric_value: float | None,
+    text_value: str | None,
+) -> Observation:
+    """Validate and persist one observation for a configured device parameter."""
+    validate_time_range(observed_at, None)
+    repository = DeviceDataRepository(db)
+    device_id = repository.get_device_id(device_uid)
+    if device_id is None:
+        raise DeviceNotFoundError
+    parameter = repository.get_parameter(device_uid, parameter_name)
+    if parameter is None:
+        raise ParameterNotFoundError
+
+    observation = Observation(
+        parameter_id=parameter.id,
+        observed_at=observed_at,
+        numeric_value=numeric_value,
+        text_value=text_value,
+    )
+    try:
+        observation.parameter = parameter
+        observation.validate_value_type()
+        db.add(observation)
+        db.commit()
+        db.refresh(observation)
+    except (SQLAlchemyError, ValueError):
+        db.rollback()
+        raise
+    return observation

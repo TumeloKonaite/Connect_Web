@@ -42,7 +42,9 @@ Clone the repository, create a local environment file, and set private values fo
 git clone <repository-url> Connect_Web
 cd Connect_Web
 cp .env.example .env
-# Edit .env and replace POSTGRES_PASSWORD and JWT_SECRET_KEY.
+# Generate a private JWT signing key:
+openssl rand -hex 32
+# Paste the generated value into JWT_SECRET_KEY in .env, and replace POSTGRES_PASSWORD.
 ```
 
 Start the services, import the demo readings, and create an account:

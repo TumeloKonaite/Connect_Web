@@ -1,6 +1,6 @@
 # Frontend
 
-React and TypeScript interface for exploring sensor observations and managing machine records. The frontend can be started and developed independently of the backend, but API-driven features need a reachable FastAPI service.
+React and TypeScript interface for exploring timestamped demo sensor observations. The frontend can be started and developed independently of the backend, but API-driven features need a reachable FastAPI service.
 
 ## Sensor Data Explorer
 

@@ -13,6 +13,15 @@ function toUtcIso(value: string) {
   return new Date(value).toISOString()
 }
 
+function toLocalDateTimeInput(utcValue: string) {
+  const date = new Date(utcValue)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const DEFAULT_START = toLocalDateTimeInput('2026-01-10T08:00:00Z')
+const DEFAULT_END = toLocalDateTimeInput('2026-01-17T07:55:00Z')
+
 export function SensorDataExplorerPage() {
   const [devices, setDevices] = useState<MonitoringDevice[]>([])
   const [device, setDevice] = useState<MonitoringDevice | null>(null)
@@ -28,8 +37,8 @@ export function SensorDataExplorerPage() {
   const [error, setError] = useState('')
   const [deviceError, setDeviceError] = useState('')
   const [parameterError, setParameterError] = useState('')
-  const [start, setStart] = useState('2025-01-01T00:00')
-  const [end, setEnd] = useState('2025-01-02T00:00')
+  const [start, setStart] = useState(DEFAULT_START)
+  const [end, setEnd] = useState(DEFAULT_END)
   const [minimum, setMinimum] = useState('')
   const [maximum, setMaximum] = useState('')
   const [validation, setValidation] = useState<Record<string, string>>({})

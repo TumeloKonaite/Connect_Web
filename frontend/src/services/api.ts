@@ -1,4 +1,4 @@
-import type { CsvImportResult, HealthResponse, MachineRecord, MachineRecordInput, MonitoringDevice, MonitoringDeviceDetail, Observation, ObservationFilters } from '../types/api'
+import type { HealthResponse, MonitoringDevice, MonitoringDeviceDetail, Observation, ObservationFilters } from '../types/api'
 
 const configuredApiBase = ((import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/+$/, '')
 // Endpoint paths below already include `/api`. Accept older Compose values
@@ -62,15 +62,6 @@ export const api = {
   },
   getCurrentUser: () => request<AuthUser>('/api/auth/me'),
   getHealth: (signal?: AbortSignal) => request<HealthResponse>('/api/health', { signal }),
-  getMachines: (limit = 25, offset = 0, signal?: AbortSignal) =>
-    request<MachineRecord[]>(`/api/machines?limit=${limit}&offset=${offset}`, { signal }),
-  getMachine: (udi: number) => request<MachineRecord>(`/api/machines/${udi}`),
-  createMachine: (record: MachineRecordInput) =>
-    request<MachineRecord>('/api/machines', { method: 'POST', body: record }),
-  updateMachine: (udi: number, changes: Partial<MachineRecordInput>) =>
-    request<MachineRecord>(`/api/machines/${udi}`, { method: 'PATCH', body: changes }),
-  deleteMachine: (udi: number) =>
-    request<void>(`/api/machines/${udi}`, { method: 'DELETE' }),
   getDevices: (signal?: AbortSignal) => request<MonitoringDevice[]>('/api/devices', { signal }),
   getDevice: (deviceUid: string, signal?: AbortSignal) =>
     request<MonitoringDeviceDetail>(`/api/devices/${encodeURIComponent(deviceUid)}`, { signal }),
@@ -94,30 +85,5 @@ export const api = {
         `/api/devices/${encodeURIComponent(deviceUid)}/observations?${query.toString()}`,
         { signal },
       )
-  },
-  importCsv: async (file: File) => {
-    const query = new URLSearchParams({ filename: file.name })
-    const response = await fetch(`${apiBaseUrl}/api/machines/import?${query}`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'text/csv',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: file,
-    })
-    if (!response.ok) {
-      if (response.status === 401) {
-        accessToken = null
-        onUnauthorized?.()
-      }
-      let message = `Request failed (${response.status} ${response.statusText})`
-      try {
-        const payload = (await response.json()) as { detail?: unknown }
-        if (typeof payload.detail === 'string') message = payload.detail
-      } catch { /* Keep the HTTP status message when the response has no JSON body. */ }
-      throw new Error(message)
-    }
-    return (await response.json()) as CsvImportResult
   },
 }

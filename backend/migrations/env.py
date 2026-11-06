@@ -9,7 +9,6 @@ from app.core.config import settings
 from app.repository.database.base import Base
 from app.repository.database.tables import (  # noqa: F401
     Device,
-    MachineRecord,
     Observation,
     Parameter,
     User,
