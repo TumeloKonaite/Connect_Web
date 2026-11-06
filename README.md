@@ -1,378 +1,204 @@
 # Connect_Web
 
-Connect_Web is a development monorepo for a React and TypeScript web client, a FastAPI service, and PostgreSQL. Docker Compose provides the standard local environment; the root Makefile wraps common Compose operations.
+Connect_Web is a factory sensor data explorer built for the DataProphet software engineering assessment. It lets a user sign in, choose a monitoring device and sensor, filter timestamped readings, and view numeric data as charts or text data as a table. The backend provides authenticated device and observation APIs, and the supplied synthetic dataset gives the application a realistic week of demo readings.
 
-## Project structure
+**Jump to:** [What you can demonstrate](#what-you-can-demonstrate) · [Features](#features) · [Tech stack](#tech-stack) · [Quick start](#quick-start) · [How to use the application](#how-to-use-the-application) · [Screenshots](#screenshots) · [Dataset](#dataset) · [API](#api-overview) · [Authentication](#authentication) · [Tests](#tests-and-validation) · [Troubleshooting](#troubleshooting) · [Design decisions](#design-decisions-and-known-limitations)
 
-```text
-.
-├── backend/                 FastAPI application, Python dependencies, tests, Dockerfile
-│   ├── app/api/routes/      HTTP routes, including GET /health
-│   └── tests/               Backend tests
-├── frontend/                React + TypeScript + Vite application, API client, and Dockerfile
-│   └── src/                  Sensor Data Explorer, visualizations, machine records, and API client
-├── docs/screenshots/        Visual reference captures for numeric charts and text tables
-├── docker-compose.yml        Frontend, backend, database, network, and volume
-├── Makefile                  Shortcuts for Docker Compose commands
-├── .env.example              Safe template for local configuration
-└── README.md                 Development setup and troubleshooting
-```
+## What you can demonstrate
 
-### Services and technologies
+Sign in, select a factory device and parameter, choose a time period, apply numeric minimum and maximum filters, and inspect the matching observations. Numeric parameters are shown as time-series charts; text parameters are shown in timestamp order in a table. The API also accepts timestamped readings and JSON batches.
 
-- **Frontend:** React and TypeScript provide the Sensor Data Explorer and machine records workspace. Vite serves the development application on port 5173 and proxies `/api` requests to the backend service.
-- **Backend:** FastAPI provides HTTP endpoints on port 8000. Its `/health` endpoint reports process health, and CORS is configured from `CORS_ORIGINS` for direct browser requests.
-- **Machine records API:** `POST`, `GET`, `PATCH`, and `DELETE` operations are available under `/api/machines`. The collection GET supports `limit` (default 100, maximum 500) and `offset` (default 0). Record identifiers use the dataset's positive `udi` value.
-- **Device API:** read-only endpoints list devices, return device parameters, and retrieve chronologically ordered observations filtered by parameter and optional timezone-aware start/end timestamps. Numeric parameters also support inclusive `min_value` and `max_value` filters. Observation results support `limit` and `offset` pagination.
-- **Database:** PostgreSQL 16 stores application data. The backend reaches it at `db:5432` over the private Compose network. No host port is published. The named `connect-web-postgres-data` volume keeps data when containers are removed.
-- **Docker Compose:** builds the frontend and backend images, starts PostgreSQL, waits for database and API health checks before starting dependent services, and provides internal DNS names such as `backend` and `db`.
-- **Make:** provides consistent commands for common Compose operations.
+## Features
 
-## Seed sample machine records
+- Email and password login with signed bearer tokens
+- Device and parameter discovery
+- Time-range and numeric value filtering with chronological results
+- Numeric charts and timestamped text tables
+- Individual observation writes and batch dataset import
+- Synthetic seven-day factory sensor dataset
+- Backend API and frontend automated tests
 
-The repository includes a representative 14-column dataset at `backend/data/machine_records.csv`. The backend image contains this file and the standalone importer at `backend/app/seed.py` maps each CSV column directly to its matching `MachineRecord` field.
+## Tech stack
 
-Start PostgreSQL and the application services, then ensure migrations are current (the backend startup runs `alembic upgrade head` automatically):
-
-```sh
-make up
-make seed
-make seed-devices
-```
-
-`make seed` runs the importer inside the running backend container and prints processed, inserted, duplicate, invalid, and failed counts. Verify records in the API at <http://localhost:8000/api/machines> or in Swagger at <http://localhost:8000/docs>.
-
-The import uses `udi` as its idempotency key. A row with a UDI already in the database is reported as a duplicate and left unchanged. Missing values, malformed numbers or booleans, unsupported types, and values that violate model constraints are reported as invalid and skipped. Each valid row commits independently; a database error rolls back only that row and later rows continue. A missing required CSV header stops the import with an actionable error. Re-running `make seed` is safe and does not overwrite development records.
-
-Create an initial demo account for future authentication work with `make up` running:
-
-```sh
-make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
-```
-
-The backend stores an Argon2 password hash and skips an email that already exists. Keep the password private; the command does not display it.
-
-### Authentication
-
-The backend stores users in PostgreSQL and passwords as Argon2 hashes. Login exchanges an email and password for a signed JWT containing the user ID (`sub`) and expiration (`exp`). `JWT_SECRET_KEY` signs tokens, `JWT_ALGORITHM` defaults to HS256, and `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` defaults to 30. The React client keeps the token in memory, sends it as a bearer token on protected calls, and clears it on logout or when an API call returns 401. Refreshing the page therefore requires signing in again. No registration, refresh token, or persistent browser token storage is provided.
-
-Set a private secret in `.env` before use (generate one with `openssl rand -hex 32`). These are the authentication settings in `.env.example`:
-
-| Variable | Purpose | Example default |
+| Component | Technology | Purpose |
 | --- | --- | --- |
-| `JWT_SECRET_KEY` | Private signing key; replace the template value | `replace-with-a-random-secret-before-use` |
-| `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
-| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes | `30` |
+| Frontend | React, TypeScript, Vite | Authenticated data explorer and visualizations |
+| Backend | Python, FastAPI, SQLAlchemy | REST API, validation, authentication, and persistence |
+| Database | PostgreSQL 16 | Users, devices, parameters, and observations |
+| Local environment | Docker Compose, Make | Build and run services with repeatable commands |
+| Tests | Pytest, frontend test runner | Backend API and frontend behavior checks |
 
-Start Docker Compose and create the initial demo account. Supply a private password in your shell; do not commit it or put it in `.env.example`:
+## Quick start
 
-```sh
-cp .env.example .env
-# Edit .env: replace POSTGRES_PASSWORD and JWT_SECRET_KEY with private values.
-make up
-make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
-```
+### Prerequisites
 
-The command hashes the password before storage and leaves an existing account unchanged. User rows persist in the named PostgreSQL volume (`connect-web-postgres-data`) across `make down` and container restarts. Do not use `docker compose down -v` unless you intend to delete all local database data.
-
-Open <http://localhost:5173> and sign in with the demo email and password. A successful login opens the Sensor Data Explorer. Use **Log out** in the header to clear the in-memory token and return to login. If a token expires or a protected call otherwise receives 401, the client logs out automatically. The token is not restored after a browser refresh.
-
-For direct API login, `POST /api/auth/login` accepts URL-encoded form fields; the OAuth2 `username` field is the account email:
-
-```sh
-curl -sS -X POST http://localhost:8000/api/auth/login \\
-  -H 'Content-Type: application/x-www-form-urlencoded' \\
-  --data-urlencode 'username=demo@example.com' \\
-  --data-urlencode 'password=choose-a-local-password'
-```
-
-Copy `access_token` from the response. Use it on protected endpoints, and inspect the current account with `/api/auth/me`:
-
-```sh
-TOKEN='<access_token from login response>'
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/devices
-```
-
-`/api/auth/me` returns only the user's ID, email, and active status. It never returns a password or password hash. `/health`, `/docs`, `/openapi.json`, and `POST /api/auth/login` are public. `GET /api/auth/me`, every endpoint under `/api/devices`, and every endpoint under `/api/machines` (including CRUD and CSV import) require a valid token. Missing, invalid, expired, or inactive-user tokens receive 401. Authenticated device observation queries retain their date/value filters, ordering, and pagination.
-
-Run authentication and application API tests with `make test-backend`; this includes valid/invalid login, token claims and rejection, `/me`, unauthenticated device and machine routes, and authenticated CRUD/filter coverage. Run frontend tests with `make test-frontend` (or `cd frontend && npm test`); the tests cover visualizations and bearer handling for CSV upload. Run both suites using `make test`. These automated tests use isolated SQLite and mock browser requests, not the Compose PostgreSQL volume. To manually verify the full Compose path, follow the steps above, seed demonstration devices with `make seed-devices`, sign in at the frontend, retrieve the devices, then log out. Restart with `make restart` or `make down && make up` and verify the same account can sign in again.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/auth/login` | Exchange email and password form data for a JWT bearer token |
-| `GET` | `/api/auth/me` | Return the authenticated user's ID, email, and active status |
-
-The prerequisites are Docker with Compose v2, a running database service, and the current Alembic migrations. `make up` starts the database and applies migrations through the backend entry command; if services were stopped, start them before running the seed target.
-
-## Simulated device time series
-
-The device dataset workflow preserves `backend/data/machine_records.csv` and generates `backend/data/device_observations.json` from it. Run `make seed-devices` with the stack running to generate and import it. To generate JSON without importing, run `python -m app.device_dataset --generate-only` from `backend/` (or pass `--csv` and `--json` paths). The JSON is validated before it is written or imported; import is transactional and repeat runs skip existing `(parameter, source_udi)` observations.
-
-Four demonstration devices are assigned deterministically by `(UDI - 1) modulo 4`. Each device has five numeric parameters (air temperature in K, process temperature in K, rotational speed in rpm, torque in Nm, and tool wear in minutes) and two text parameters (product type and machine failure status). Machine failure booleans become `normal` or `failure`. Observations retain their source UDI. The source CSV measurements and categorical values are unchanged in the original machine records.
-
-Timestamps are simulated in UTC: UDI 1 starts at 2025-01-01 00:00 UTC, and each subsequent UDI advances the generated schedule by five minutes. Records assigned to any one device therefore have a strictly increasing schedule. These are demonstration timestamps, not collection times, and the device assignment does not represent real physical monitoring hardware. The generated JSON metadata states these assumptions explicitly. `devices`, `parameters`, and `observations` are stored separately; an observation reaches its device through its parameter and may point back to `machine_records.udi`.
-
-## Prerequisites
-
-- Git
-- Docker Engine or Docker Desktop with the `docker compose` plugin
+- Docker Engine or Docker Desktop with Compose v2
 - GNU Make
-- For running services independently: Node.js 22 with npm, Python 3.12, and `uv`
+- Git
 
-Check that Docker and Compose are available:
-
-```sh
-docker --version
-docker compose version
-make --version
-```
-
-## Configure and start the stack
-
-Clone the repository and enter its directory:
+Clone the repository, create a local environment file, and set private values for `POSTGRES_PASSWORD` and `JWT_SECRET_KEY` in `.env`:
 
 ```sh
 git clone <repository-url> Connect_Web
 cd Connect_Web
-```
-
-Create a private local environment file from the committed template:
-
-```sh
 cp .env.example .env
+# Edit .env and replace POSTGRES_PASSWORD and JWT_SECRET_KEY.
 ```
 
-Edit `.env` before use and replace `POSTGRES_PASSWORD` and `JWT_SECRET_KEY` with strong local values. `.env` files are ignored by Git; do not commit credentials. Compose reads the root `.env` automatically. The template lists ports, database credentials, backend settings, CORS origins, and the frontend API base path. Defaults are also provided by Compose for most settings.
-
-Build and start all services in the background:
+Start the services, import the demo readings, and create an account:
 
 ```sh
 make up
+make seed-devices
+make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
 ```
 
-Then open:
+Open <http://localhost:5173> and sign in with the account you created. The API health check is at <http://localhost:8000/health>, and interactive API documentation is at <http://localhost:8000/docs>.
 
-- Frontend: <http://localhost:5173>
-- Backend health endpoint: <http://localhost:8000/health>
-- Backend API documentation: <http://localhost:8000/docs>
+`make up` applies database migrations as the backend starts. The dataset import is safe to repeat: existing matching observations are skipped. Keep `.env` private and do not commit it.
 
-### Machine records API
+## How to use the application
 
-Use the Swagger UI at <http://localhost:8000/docs> to try the machine record endpoints. The API accepts machine type values `L`, `M`, or `H`; rotational speed, torque, and tool wear must be nonnegative. Creation requires a unique positive `udi`. PATCH accepts only fields to change, preserves omitted fields, rejects null values, and does not allow `udi` to be changed.
+1. Sign in with the demo account.
+2. Choose a monitoring device and one of its parameters.
+3. Set the start and end date/time. The time controls use your local timezone; the API stores and returns timestamps in UTC.
+4. For numeric parameters, optionally set inclusive minimum and maximum values.
+5. Select **View data** to display the matching chart or text table.
 
-| Method | Endpoint | Result |
+## Screenshots
+
+These screenshots show the login page, the authenticated explorer, and examples of numeric and text observations:
+
+| Login | Authenticated explorer |
+| --- | --- |
+| ![Connect_Web login page](docs/screenshots/login-page.svg) | ![Authenticated Sensor Data Explorer](docs/screenshots/authenticated-application.svg) |
+
+| Numeric observations | Text observations |
+| --- | --- |
+| ![Numeric time-series chart](docs/screenshots/numeric-observation-chart.svg) | ![Timestamped text observation table](docs/screenshots/text-observation-table.svg) |
+
+## Architecture and project structure
+
+| Component | Technology | Responsibility |
 | --- | --- | --- |
-| `POST` | `/api/machines` | Create a record (`201`); duplicate UDI returns `409` |
-| `GET` | `/api/machines` | List records ordered by UDI, with `limit` and `offset` pagination (`200`) |
-| `GET` | `/api/machines/{udi}` | Retrieve one record (`200`, or `404` if missing) |
-| `PATCH` | `/api/machines/{udi}` | Partially update a record (`200`, or `404` if missing) |
-| `DELETE` | `/api/machines/{udi}` | Delete a record (`204`, or `404` if missing) |
-| `POST` | `/api/machines/import?filename=machines.csv` | Import CSV rows and return inserted, duplicate, invalid, and failed counts |
-| `GET` | `/api/devices` | List devices ordered by device UID |
-| `GET` | `/api/devices/{device_uid}` | Get a device and its parameters |
-| `GET` | `/api/devices/{device_uid}/observations` | Get chronological observations; filter with `parameter`, timezone-aware `start`/`end`, numeric `min_value`/`max_value`, `limit`, and `offset` |
+| Frontend | React + TypeScript + Vite | Sensor Data Explorer, charts, tables, and API client |
+| Backend | FastAPI | Authentication, input validation, and device/observation endpoints |
+| Database | PostgreSQL | Persistent users, devices, parameters, and observations |
+| Compose | Docker Compose | Private service network, health checks, and persistent database volume |
 
-Observation requests select a parameter by its `name` within the device (for example, `parameter=air_temperature`). The device detail endpoint returns each parameter's `id`, `name`, and `data_type`; parameter names are unique within a device. Numeric `min_value` and `max_value` boundaries are inclusive, can be used independently or together, and are applied in the database before pagination. They are supported only for numeric parameters; text parameter requests using either filter and ranges where `min_value` exceeds `max_value` return HTTP 422. `start` and `end` are inclusive, timezone-aware timestamps. Results are ordered by timestamp and observation ID.
-
-Example create request body:
-
-```json
-{
-  "udi": 1,
-  "product_id": "M14860",
-  "type": "M",
-  "air_temperature": 298.1,
-  "process_temperature": 308.6,
-  "rotational_speed": 1551,
-  "torque": 42.8,
-  "tool_wear": 0,
-  "machine_failure": false,
-  "twf": false,
-  "hdf": false,
-  "pwf": false,
-  "osf": false,
-  "rnf": false
-}
+```text
+backend/
+  app/api/       FastAPI routes, dependencies, and HTTP error handling
+  app/core/      Configuration and security
+  app/repository/ Database models and data access
+  app/services/  Dataset and observation workflows
+  app/scripts/   Dataset import and demo-user command line utilities
+  data/          Timestamped demonstration dataset
+  migrations/    Alembic schema migrations
+  tests/         Isolated backend tests
+frontend/
+  src/           React application, API client, and visualizations
+  tests/         Frontend automated tests
+docs/screenshots/ Example numeric chart and text table
 ```
 
-The test suite exercises CRUD behavior, validation, duplicate and missing identifiers, and pagination using an isolated SQLite database. `make` targets are defined in the repository root, so run `make test-backend` from the root directory (`~/dataprophet`), not from `frontend/` or `backend/`. To run pytest directly without Docker, change to `backend/` and run `uv run --group dev pytest`.
+The root README covers the full-stack setup and demo workflow. For backend-only development, database configuration, migrations, CLI utilities, API details, and backend tests, see the [backend README](backend/README.md). Frontend-specific development notes are in [frontend/README.md](frontend/README.md).
 
-## Sensor Data Explorer & Visualizations
+## Dataset
 
-The Sensor Data Explorer calls `/api/devices`, `/api/devices/{device_uid}`, and `/api/devices/{device_uid}/observations` through the shared frontend API client and automatically selects the appropriate visualization based on the chosen parameter's `data_type`.
+`backend/data/factory_sensor_demo_7days.json` contains four synthetic monitoring devices, each with five numeric and two text parameters, and one week of timestamped observations. Timestamps are UTC. The data is for demonstration only and does not represent real factory measurements. Devices, parameters, and observations are persisted in separate tables.
 
-### Selecting a Device, Parameter, and Time Range
-
-1. **Select a monitoring device** in the Query Setup panel to load its configured parameters from `/api/devices/{device_uid}`.
-2. **Select a parameter** (`numeric` or `text`). Parameter names and units are shown in the selector.
-3. **Specify a start and end date/time**. Date/time inputs use your browser's local timezone and are converted to UTC ISO timestamps when querying FastAPI. The default window is January 1–2, 2025, matching the simulated demonstration dataset.
-4. **Apply optional numeric value filters**: When a `numeric` parameter is selected, inclusive **Minimum value** and **Maximum value** inputs appear. Applying these bounds filters the backend query (`min_value` and `max_value`) and updates the rendered line chart and context summary. Switching to a `text` parameter clears and hides numeric value bounds.
-5. Click **View data** to retrieve and visualize matching observations.
-
-### Numeric Observations (Time-Series Line Chart)
-
-When a parameter has `data_type: "numeric"` (such as Air Temperature, Process Temperature, Rotational Speed, Torque, or Tool Wear), observations are rendered in `NumericObservationChart`:
-
-- **Chronological time-based horizontal axis:** Observations are sorted chronologically and positioned proportionally to their timestamps so irregular time intervals are represented accurately.
-- **Accurate vertical scale:** The vertical axis uses `numericScale` to compute clean tick marks across positive, zero, negative, or single-observation datasets without unnecessary rounding.
-- **Context and summary stats:** Displays the parameter name, measurement unit badge, and summary statistics (`Min`, `Max`, `Avg`) for the plotted page.
-- **Interactive inspection:** Hovering or focusing any plotted observation point highlights it, renders a vertical alignment guide, and displays its exact timestamp, numeric value, unit, and source UDI in the inspector banner as well as native SVG point tooltips.
-
-![Numeric observation time-series chart](docs/screenshots/numeric-observation-chart.svg)
-
-### Text Observations (Timestamped Table)
-
-When a parameter has `data_type: "text"` (such as Product Type or Machine Failure), observations are rendered in `TextObservationTable`:
-
-- **Chronological rows:** Observations are ordered chronologically with **Observation Timestamp** in the first column and **Recorded \<Parameter\>** in the second column.
-- **Readable formatting:** Timestamps are formatted consistently with the numeric chart. Categorical values (such as `L`, `M`, `H`, `normal`, and `failure`) include clear visual badges while preserving readable text wrapping for long strings and explicit placeholders (`— (Not recorded)`) for empty or missing text values.
-
-![Text observation table](docs/screenshots/text-observation-table.svg)
-
-The authentication interface references are kept alongside these application captures: [login page](docs/screenshots/login-page.svg) and [authenticated Sensor Data Explorer](docs/screenshots/authenticated-application.svg).
-
-### Pagination and Visualization Limitations
-
-- **Paginated results:** The explorer requests `PAGE_SIZE` (100) observations per page plus one lookahead record (`limit=101`) to determine whether additional pages exist without loading the entire dataset into the browser.
-- **Page navigation:** Both numeric charts and text tables display only the currently loaded page (`Showing 1–100`, `Page 2 · Showing 101–200`, etc.) and provide **Previous** and **Next** buttons when more observations are available, ensuring partial pages are never misrepresented as the complete dataset.
-- **Known limitations:** Charts plot the raw observations for the active page (up to 100 points) without server-side downsampling or multi-page aggregation.
-
-### Running Frontend Tests
-
-Run the automated frontend tests, linter, and production build from `frontend/`:
+The `make seed-devices` command validates and imports this JSON dataset transactionally. To validate it without writing to the database, run from `backend/`:
 
 ```sh
-cd frontend
-npm test
-npm run lint
-npm run build
+DEBUG=false APP_ENVIRONMENT=test uv run python -m app.scripts.device_dataset --validate-only
 ```
 
-Or run the containerized test suite from the repository root:
+The importer also accepts another compatible JSON file with `--dataset /path/to/file.json`.
 
-```sh
-make test-frontend
-```
+## API overview
 
-The frontend test suite (`frontend/tests/numericScale.test.mjs` and `frontend/tests/visualizations.test.mjs`) verifies numeric axis scaling, time-series line chart rendering, single-point and zero/negative value handling, text observation table rendering, chronological ordering, filter context display, loading/empty/error states, and pagination controls.
-
-## Machine records interface
-
-Start the integrated application with `make up`, then open <http://localhost:5173>. Use the **Single record** tab in the Record Details card to create a record, **View** to inspect every measurement and failure indicator, **Edit** to update a record while keeping its UDI fixed, and **Delete** to remove it after browser confirmation. The table is ordered by UDI and uses Previous/Next controls to load backend pages. Validation errors and API responses appear above the record controls. To load the sample records, run `make seed`.
-
-The **Record Details** card has **Single record** and **Bulk CSV** tabs. Use **Single record** to create or edit one machine and **Bulk CSV** to upload a dataset. Choose a `.csv` file and select **Upload CSV**. The CSV must be UTF-8 and include all 14 machine columns. Both snake_case headers (such as `air_temperature`) and the original AI4I headers (such as `Air temperature [K]`) are accepted. The API accepts files up to 5 MiB and 10,000 data rows. Existing UDIs are skipped; invalid rows are skipped and reported with line numbers. The table reloads after the import, and the result lists inserted, duplicate, invalid, and failed counts.
-
-The CSV endpoint is also available directly. It accepts the raw CSV request body (not multipart form data):
-
-```sh
-curl -X POST 'http://localhost:8000/api/machines/import?filename=machines.csv' \
-  -H 'Content-Type: text/csv' \
-  --data-binary @machines.csv
-```
-
-The page is responsive: the table can scroll horizontally on narrow screens, while the record form and detail view reflow to fit.
-
-## Makefile commands
-
-Run these commands from the repository root:
-
-| Command | Purpose | Deletes database data? |
+| Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `make build` | Build or rebuild service images | No |
-| `make up` | Build images and start services in the background | No |
-| `make down` | Stop and remove containers and the Compose network | No; the named volume remains |
-| `make restart` | Restart running containers | No |
-| `make logs` | Follow logs from all services; press Ctrl+C to stop following | No |
-| `make ps` | Show Compose service and container status | No |
-| `make seed` | Import sample CSV into PostgreSQL; duplicate UDIs remain unchanged | No |
-| `make seed-devices` | Generate and import simulated device observations (idempotent) | No |
-| `make test` | Run backend and frontend automated test suites | No |
-| `make test-backend` | Run backend pytest suite in a temporary container | No |
-| `make test-frontend` | Run frontend automated tests in a temporary container | No |
+| `GET` | `/health` | Check that the API process responds |
+| `POST` | `/api/auth/login` | Exchange email and password form data for a bearer token |
+| `GET` | `/api/auth/me` | Return the authenticated account |
+| `GET` | `/api/devices` | List monitoring devices |
+| `GET` | `/api/devices/{device_uid}` | Get a device and its configured parameters |
+| `GET` | `/api/devices/{device_uid}/observations` | Query observations by parameter, time, numeric bounds, and pagination |
+| `POST` | `/api/devices/{device_uid}/observations` | Add one timestamped numeric or text observation |
+| `POST` | `/api/devices/import` | Validate and import a nested JSON dataset batch |
 
-Equivalent direct Compose commands are available if needed, for example `docker compose logs -f backend` or `docker compose exec backend sh`.
+`/health`, API documentation, and login are public. Other `/api/devices` routes and `/api/auth/me` require a valid bearer token. Observation time bounds and numeric value bounds are inclusive; date/time inputs must include a timezone.
 
-**Destructive database command:** `docker compose down -v` removes the named PostgreSQL volume and permanently deletes its stored data. There is no Makefile target for this operation. `docker volume rm connect-web-postgres-data` also deletes that volume and should only be used when intentionally resetting local data.
+To add one observation, provide a configured parameter, timezone-aware `observed_at`, and exactly one of `numeric_value` or `text_value`. Successful writes return `201` and the stored observation. The batch route accepts the same nested JSON structure as the supplied dataset and returns counts of created devices, parameters, and observations. The `make seed-devices` command is the simpler option for importing the bundled local dataset.
 
-To stop and later restart, use `make down`, then `make up`. PostgreSQL data is preserved across this cycle.
-
-## Independent service development
-
-The supported integrated workflow is Compose, which starts all three services and supplies the expected internal hostnames. To run a service directly, install its dependencies and provide the same configuration yourself.
-
-Frontend (terminal 1):
+For direct login, the endpoint accepts URL-encoded form fields, with the email in `username`:
 
 ```sh
-cd frontend
-npm ci
-cp .env.example .env.local  # optionally edit VITE_API_BASE_URL
-npm run dev
+curl -sS -X POST http://localhost:8000/api/auth/login \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'username=demo@example.com' \
+  --data-urlencode 'password=choose-a-local-password'
 ```
 
-Backend (terminal 2, from repository root):
+Use the returned `access_token` as `Authorization: Bearer <token>` on protected requests. See <http://localhost:8000/docs> for request and response schemas.
+
+## Authentication
+
+Passwords are stored as Argon2 hashes. Login issues a signed JWT containing the user ID and expiration. `JWT_SECRET_KEY` signs tokens, `JWT_ALGORITHM` defaults to HS256, and `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` defaults to 30. Replace the template secret in `.env` with a private value (for example, `openssl rand -hex 32`).
+
+The frontend keeps the token in memory and clears it on logout or when an API request returns 401. Refreshing the browser page requires signing in again. The application does not include account registration or token refresh. The demo-user command leaves an existing account unchanged and does not print the supplied password:
 
 ```sh
-cd backend
-uv sync
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='choose-a-local-password'
 ```
 
-When running services on the host, the Compose-only Vite proxy target `backend` is not resolvable. Use `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env.local`, and set the backend `CORS_ORIGINS` to include `http://localhost:5173`. A PostgreSQL instance must also be available; set `DATABASE_URL` (or the individual `DB_*` values) for that instance. The current health route does not query the database.
+User and sensor data persist in the named PostgreSQL volume across `make down` and container restarts. `make clean-data` removes the volume and permanently deletes local database data.
 
-## Tests and diagnostics
+## Tests and validation
 
-Run the available checks from the service directories:
-
-```sh
-(cd backend && uv run --group dev pytest)
-(cd frontend && npm test)
-(cd frontend && npm run lint)
-(cd frontend && npm run build)
-```
-
-Or run the Docker-based test targets from the repository root:
+Run the backend and frontend suites from the repository root:
 
 ```sh
 make test-backend
 make test-frontend
+# or run both
+make test
 ```
 
-### Test coverage and isolation
+Backend tests use a fresh in-memory SQLite database and cover API workflows, authentication, validation, filters, and dataset import behavior without changing the Compose database. Frontend tests cover visualizations, authenticated API requests, and loading, empty, and error states. These tests do not replace checking the app against PostgreSQL through the Compose workflow.
 
-Backend endpoint tests replace the application's database dependency with a fresh, in-memory SQLite database for each test. This exercises the FastAPI routes, SQLAlchemy persistence, response codes, validation, duplicate handling, pagination, and missing-record behavior without reading or changing the Compose PostgreSQL volume. Seed parsing and idempotency are tested separately with the same isolated database approach. The Compose PostgreSQL service is verified through the integrated startup and manual workflow described above; the pytest suite does not connect to PostgreSQL.
+For local non-Docker checks, install the backend dev dependencies with `cd backend && uv sync --group dev`, then use `uv run pytest`. In `frontend/`, use `npm test`, `npm run lint`, and `npm run build`.
 
-Useful checks and container shell access:
+## Useful commands
 
-```sh
-make ps
-make logs
-docker compose logs -f db
-docker compose exec frontend sh
-docker compose exec backend sh
-docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-```
-
-The `psql` command uses variables from the current shell; alternatively run `docker compose exec db sh` and connect with the configured user and database.
+| Command | Action |
+| --- | --- |
+| `make up` | Build and start the stack |
+| `make down` | Stop the stack while preserving the database volume |
+| `make restart` | Restart running services |
+| `make seed-devices` | Import the bundled timestamped dataset |
+| `make create-demo-user ...` | Create a demo account |
+| `make test` | Run backend and frontend tests |
+| `make ps` | Show service status |
+| `make logs` | Follow logs from all services |
+| `make clean-data` | Remove the database volume and its data |
 
 ## Troubleshooting
 
 - **Ports are already in use:** change `FRONTEND_PORT` or `BACKEND_PORT` in `.env`, then run `make up` again.
-- **Compose reports missing or invalid variables:** check `.env` syntax and compare it with `.env.example`; quote values that contain characters interpreted by Compose. Use `docker compose config` to inspect the resolved configuration (it may display secrets, so do not publish its output).
-- **Frontend shows a backend connection error:** check `make ps` and `make logs`, then try <http://localhost:8000/health>. In Compose, the Vite proxy uses the service name `backend`; from a host-run frontend, use `http://localhost:8000` as the API base URL and confirm CORS includes the frontend origin.
-- **Backend does not become healthy:** inspect `docker compose logs backend db`. The backend waits for PostgreSQL's health check. Confirm the database credentials in `.env` and allow startup time.
-- **Database authentication fails after changing credentials:** PostgreSQL applies initialization credentials only when its data directory is first created. Existing data retains its original database password. Use the original password or intentionally reset the volume with `docker compose down -v` (this permanently deletes local database data).
-- **Database data seems missing:** `make down` preserves the named volume, but changing `COMPOSE_PROJECT_NAME` does not change its explicitly named volume. Check the active Compose project and volume with `docker compose ps` and `docker volume ls`.
-
-## Validation status
-
-The backend pytest suite uses isolated SQLite databases and can be run with `make test-backend`. The frontend automated tests, production build, and lint checks can be run with `make test-frontend`, `npm test`, `npm run build`, and `npm run lint`. `docker compose config --quiet` validates the Compose file; use `make up`, `make ps`, and the URLs above to check a running stack. The frontend health indicator provides a browser-to-backend check. Database health is checked with `pg_isready`; the current backend health route is a liveness check and does not verify a database query. Use Swagger at <http://localhost:8000/docs> to explore device endpoints. For example, `GET /api/devices/demo-device-1/observations?parameter=air_temperature&start=2025-01-01T00:00:00Z&end=2025-01-02T00:00:00Z` returns observations in timestamp order.
+- **Compose reports missing or invalid variables:** compare `.env` with `.env.example` and check its syntax. `docker compose config --quiet` validates the configuration; avoid sharing resolved output because it may contain secrets.
+- **Frontend cannot reach the backend:** check `make ps` and `make logs`, then open <http://localhost:8000/health>. The Compose Vite proxy uses the service name `backend`.
+- **Backend does not become healthy:** inspect `docker compose logs backend db`, confirm database credentials, and allow startup time for PostgreSQL health checks and migrations.
+- **Database authentication fails after changing credentials:** PostgreSQL applies initial credentials only when the data directory is first created. Existing data retains the original password. Use the original password or intentionally reset the volume with `make clean-data`.
+- **Database data appears missing:** `make down` preserves the named volume. Check the active Compose project with `make ps` and list volumes with `docker volume ls`.
 
 ## Design decisions and known limitations
 
-- The dataset's positive `udi` is the record identifier, which keeps API paths aligned with the source CSV. It is immutable after creation.
-- Pydantic schemas reject invalid API inputs before persistence, while SQLAlchemy constraints provide a second validation layer in the database.
-- The repository layer owns database queries; the FastAPI routes translate expected validation, conflict, and missing-record conditions into HTTP responses.
-- SQLite fixtures make backend tests independent and safe to run against a developer's data. They do not replace the Compose PostgreSQL integration check.
-- The frontend automated tests cover numeric axis scaling and component rendering for numeric time-series charts, text observation tables, filter context headers, pagination states, and loading/empty/error states.
-- Each results page displays up to 100 observations without client-side downsampling or cross-page aggregation.
+- Pydantic validates API input before persistence, and SQLAlchemy constraints provide a second validation layer in the database.
+- Database access is isolated in repository modules; service code owns dataset and observation workflows.
+- Backend tests use isolated SQLite fixtures. They are safe to run against local development data but do not test PostgreSQL-specific behavior.
+- Observation results are paginated, with up to 100 readings per page; the frontend does not downsample or aggregate across pages.
+- The backend health route is a liveness check and does not run a database query. Compose separately checks database readiness with `pg_isready`.
+- The dataset is synthetic and intended to demonstrate the assessment workflow, not to model validated industrial operating limits.
