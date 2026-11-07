@@ -27,7 +27,6 @@ export interface Observation {
   observed_at: string
   numeric_value: number | null
   text_value: string | null
-  source_udi: number | null
 }
 
 export interface ObservationFilters {

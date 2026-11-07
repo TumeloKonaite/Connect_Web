@@ -58,7 +58,6 @@ test('Numeric visualization: displays a time-series line chart for numeric param
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: 298.1,
       text_value: null,
-      source_udi: 1,
     },
     {
       id: 2,
@@ -66,7 +65,6 @@ test('Numeric visualization: displays a time-series line chart for numeric param
       observed_at: '2025-01-01T00:20:00Z',
       numeric_value: 298.4,
       text_value: null,
-      source_udi: 5,
     },
   ]
 
@@ -99,7 +97,6 @@ test('Numeric visualization: passes timestamps and numeric values chronologicall
       observed_at: '2025-01-01T02:00:00Z',
       numeric_value: 301.125,
       text_value: null,
-      source_udi: 9,
     },
     {
       id: 1,
@@ -107,7 +104,6 @@ test('Numeric visualization: passes timestamps and numeric values chronologicall
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: 298.15,
       text_value: null,
-      source_udi: 1,
     },
     {
       id: 2,
@@ -115,7 +111,6 @@ test('Numeric visualization: passes timestamps and numeric values chronologicall
       observed_at: '2025-01-01T00:30:00Z',
       numeric_value: 299.875,
       text_value: null,
-      source_udi: 5,
     },
   ]
 
@@ -156,7 +151,6 @@ test('Numeric visualization: displays selected parameter name and measurement un
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: 298.1,
       text_value: null,
-      source_udi: 1,
     },
   ]
 
@@ -189,7 +183,6 @@ test('Numeric visualization: handles single observation dataset correctly', () =
       observed_at: '2025-01-01T04:15:00Z',
       numeric_value: 300.5,
       text_value: null,
-      source_udi: 12,
     },
   ]
 
@@ -215,7 +208,6 @@ test('Numeric visualization: handles zero and negative values correctly', () => 
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: -12.5,
       text_value: null,
-      source_udi: 1,
     },
     {
       id: 2,
@@ -223,7 +215,6 @@ test('Numeric visualization: handles zero and negative values correctly', () => 
       observed_at: '2025-01-01T00:10:00Z',
       numeric_value: 0,
       text_value: null,
-      source_udi: 2,
     },
     {
       id: 3,
@@ -231,7 +222,6 @@ test('Numeric visualization: handles zero and negative values correctly', () => 
       observed_at: '2025-01-01T00:20:00Z',
       numeric_value: 8.25,
       text_value: null,
-      source_udi: 3,
     },
   ]
 
@@ -257,7 +247,6 @@ test('Numeric visualization: chart updates when new observations are received', 
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: 297.2,
       text_value: null,
-      source_udi: 1,
     },
   ]
   const secondBatch = [
@@ -267,7 +256,6 @@ test('Numeric visualization: chart updates when new observations are received', 
       observed_at: '2025-01-01T01:00:00Z',
       numeric_value: 304.9,
       text_value: null,
-      source_udi: 5,
     },
     {
       id: 3,
@@ -275,7 +263,6 @@ test('Numeric visualization: chart updates when new observations are received', 
       observed_at: '2025-01-01T02:00:00Z',
       numeric_value: 305.6,
       text_value: null,
-      source_udi: 9,
     },
   ]
 
@@ -311,7 +298,6 @@ test('Text visualization: displays a table with timestamps in the first column a
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: null,
       text_value: 'M',
-      source_udi: 1,
     },
     {
       id: 11,
@@ -319,7 +305,6 @@ test('Text visualization: displays a table with timestamps in the first column a
       observed_at: '2025-01-01T00:20:00Z',
       numeric_value: null,
       text_value: 'L',
-      source_udi: 5,
     },
   ]
 
@@ -362,7 +347,6 @@ test('Text visualization: displays observations in chronological order and handl
       observed_at: '2025-01-01T01:00:00Z',
       numeric_value: null,
       text_value: 'failure',
-      source_udi: 9,
     },
     {
       id: 20,
@@ -370,7 +354,6 @@ test('Text visualization: displays observations in chronological order and handl
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: null,
       text_value: 'normal',
-      source_udi: 1,
     },
     {
       id: 21,
@@ -378,7 +361,6 @@ test('Text visualization: displays observations in chronological order and handl
       observed_at: '2025-01-01T00:20:00Z',
       numeric_value: null,
       text_value: 'normal',
-      source_udi: 5,
     },
     {
       id: 23,
@@ -386,7 +368,6 @@ test('Text visualization: displays observations in chronological order and handl
       observed_at: '2025-01-01T01:20:00Z',
       numeric_value: null,
       text_value: '   ',
-      source_udi: 13,
     },
   ]
 
@@ -421,7 +402,6 @@ test('Text visualization: table updates when new observations are received', () 
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: null,
       text_value: 'M',
-      source_udi: 1,
     },
   ]
   const pageTwo = [
@@ -431,7 +411,6 @@ test('Text visualization: table updates when new observations are received', () 
       observed_at: '2025-01-01T00:20:00Z',
       numeric_value: null,
       text_value: 'H',
-      source_udi: 5,
     },
   ]
 
@@ -548,7 +527,6 @@ test('Application states: switches automatically between chart and table views a
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: 298.1,
       text_value: null,
-      source_udi: 1,
     },
   ]
   const textObs = [
@@ -558,7 +536,6 @@ test('Application states: switches automatically between chart and table views a
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: null,
       text_value: 'normal',
-      source_udi: 1,
     },
   ]
 
@@ -616,7 +593,6 @@ test('Application states: handles pagination metadata and does not misrepresent 
     observed_at: new Date(Date.UTC(2025, 0, 1, 0, i * 5)).toISOString(),
     numeric_value: 298 + (i % 5) * 0.2,
     text_value: null,
-    source_udi: i + 1,
   }))
 
   let requestedOffset = null
@@ -675,7 +651,6 @@ test('Application states: handles malformed observation payloads gracefully with
       observed_at: 'not-a-timestamp',
       numeric_value: 298.1,
       text_value: null,
-      source_udi: 1,
     },
     {
       id: 2,
@@ -683,7 +658,6 @@ test('Application states: handles malformed observation payloads gracefully with
       observed_at: '2025-01-01T00:00:00Z',
       numeric_value: Number.NaN,
       text_value: null,
-      source_udi: 2,
     },
   ]
 

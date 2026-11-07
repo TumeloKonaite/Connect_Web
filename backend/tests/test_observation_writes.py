@@ -51,7 +51,6 @@ def test_create_device_observation_persists_value_and_timestamp(session: Session
     assert stored.numeric_value == 301.25
     assert stored.text_value is None
     assert stored.observed_at.replace(tzinfo=UTC) == timestamp
-    assert stored.source_udi is None
 
 
 @pytest.mark.parametrize(

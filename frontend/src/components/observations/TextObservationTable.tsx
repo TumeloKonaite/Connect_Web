@@ -63,9 +63,9 @@ export function TextObservationTable({ observations, parameter }: TextObservatio
                   <td className="observation-text">
                     {hasValue ? (
                       badgeClass ? (
-                        <span className={badgeClass}>{rawText}</span>
+                        <span className={badgeClass} title={rawText}>{rawText}</span>
                       ) : (
-                        rawText
+                        <span title={rawText}>{rawText}</span>
                       )
                     ) : (
                       <span className="observation-empty-value" aria-label="No recorded text value">

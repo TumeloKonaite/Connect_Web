@@ -92,7 +92,6 @@ def test_import_relationships_and_repeat_import_are_idempotent(session):
         == observation_count
     )
     observation = session.scalar(select(Observation).order_by(Observation.observed_at))
-    assert observation.source_udi is None
     assert observation.parameter.device.device_uid.startswith("demo-device-")
 
 

@@ -36,7 +36,7 @@ class DeviceResponse(DeviceSummaryResponse):
 
 
 class ObservationResponse(BaseModel):
-    """One parameter observation and its source record reference."""
+    """One timestamped parameter observation."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,7 +45,6 @@ class ObservationResponse(BaseModel):
     observed_at: datetime
     numeric_value: float | None
     text_value: str | None
-    source_udi: int | None
 
 
 class ObservationCreate(BaseModel):

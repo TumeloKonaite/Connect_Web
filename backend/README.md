@@ -53,7 +53,7 @@ To import the supplied timestamped device dataset:
 uv run python -m app.scripts.device_dataset
 ```
 
-The command validates and imports `backend/data/factory_sensor_demo_7days.json`, including its existing device definitions, values, and timestamps. It prints counts of created devices, parameters, and observations. Use `uv run python -m app.scripts.device_dataset --validate-only` to check the JSON without importing it, or provide `--dataset /path/to/file.json` for another compatible dataset. Observations without a source UDI are idempotent by parameter and timestamp.
+The command validates and imports `backend/data/factory_sensor_demo_7days.json`, including its existing device definitions, values, and timestamps. It prints counts of created devices, parameters, and observations. Use `uv run python -m app.scripts.device_dataset --validate-only` to check the JSON without importing it, or provide `--dataset /path/to/file.json` for another compatible dataset. Repeated observations are skipped by parameter and timestamp.
 
 
 ## Create a demo user

@@ -109,6 +109,7 @@ export function ObservationResults({
           </span>
           <strong>Couldn’t retrieve observations</strong>
           <span>{error}</span>
+          <button type="button" className="inline-retry" onClick={() => onPage(offset)} disabled={!parameter || !device}>Try again</button>
         </div>
       ) : observations === null ? (
         <div className="results-message">

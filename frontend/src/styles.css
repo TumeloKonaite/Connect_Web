@@ -151,7 +151,6 @@ h1 { margin-bottom: 7px; font: 700 clamp(27px, 3.1vw, 37px) Manrope, sans-serif;
 .tooltip-time { font: 500 10px 'DM Mono', monospace; color: #3d5649; }
 .tooltip-sep { color: #96a59c; }
 .tooltip-value { color: #163f32; font-weight: 600; }
-.tooltip-udi { margin-left: auto; padding: 1px 6px; border-radius: 3px; background: #dfeee5; color: #2b6f51; font: 500 8px 'DM Mono', monospace; }
 .tooltip-hint { color: #84928a; font-size: 9.5px; }
 .chart-wrap { box-sizing: border-box; flex: 0 1 auto; width: 100%; max-width: 100%; min-width: 0; padding: 10px 12px 6px; overflow: hidden; }
 .observation-chart { display: block; width: 100%; min-width: 0; max-width: 100%; height: auto; }
@@ -217,3 +216,18 @@ h1 { margin-bottom: 7px; font: 700 clamp(27px, 3.1vw, 37px) Manrope, sans-serif;
   .observation-table-wrap { padding: 6px 14px 12px; }
   .observation-pagination { padding: 10px 14px; }
 }
+.inline-retry { margin-left: 5px; padding: 2px 7px; border: 1px solid #d5e2da; border-radius: 4px; color: #266549; background: #fff; font: 600 9px 'DM Sans', sans-serif; cursor: pointer; }
+.inline-retry:hover:not(:disabled) { border-color: #9ec2ad; background: #f2f8f4; }
+.inline-retry:disabled { opacity: .55; cursor: not-allowed; }
+.observation-table-wrap { overflow-x: auto; }
+.observation-table-wrap td.observation-text { max-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.csv-import-panel { margin: -12px 0 18px; padding: 14px 17px; border: 1px solid #e2ebe4; border-radius: 6px; background: #fbfdfb; color: #586b5f; font-size: 10px; }
+.csv-import-panel summary { color: #2b6f51; font-weight: 600; cursor: pointer; }
+.csv-import-panel > p { margin: 10px 0; line-height: 1.6; }
+.csv-import-panel code { overflow-wrap: anywhere; color: #416a53; font-size: 9px; }
+.csv-import-form { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.csv-import-form label { font-weight: 600; }
+.csv-import-form input { min-width: 0; flex: 1; color: #607267; font: 10px 'DM Sans', sans-serif; }
+.csv-import-form .primary-button { min-height: 34px; padding: 0 12px; font-size: 10px; }
+.csv-feedback { margin: 10px 0 0 !important; color: #367552; }
+.csv-feedback--error { color: #ae594b; }
