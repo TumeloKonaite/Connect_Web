@@ -23,12 +23,11 @@ export function useApiHealth(): ApiHealth {
       .then((data) => {
         setHealth({ state: 'connected', message: 'Backend is reachable', data })
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (controller.signal.aborted) return
-        const detail = error instanceof Error ? error.message : 'Unknown connection error'
         setHealth({
           state: 'error',
-          message: `Unable to reach the backend. ${detail}`,
+          message: 'Unable to reach the backend. Check that it is running, then reload to reconnect.',
           data: null,
         })
       })

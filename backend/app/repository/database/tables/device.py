@@ -18,7 +18,7 @@ from app.repository.database.base import Base
 
 
 class Device(Base):
-    """A simulated monitoring device assigned to manufacturing records."""
+    """A simulated monitoring device for factory equipment."""
 
     __tablename__ = "devices"
 
@@ -56,7 +56,7 @@ class Parameter(Base):
 
 
 class Observation(Base):
-    """One timestamped observation, optionally traced to a source UDI."""
+    """One timestamped observation for a configured device parameter."""
 
     __tablename__ = "observations"
     __table_args__ = (
@@ -65,9 +65,7 @@ class Observation(Base):
             "(numeric_value IS NULL AND text_value IS NOT NULL)",
             name="ck_observation_single_value",
         ),
-        UniqueConstraint("parameter_id", "source_udi", name="uq_observation_source"),
         Index("ix_observation_parameter_timestamp", "parameter_id", "observed_at"),
-        Index("ix_observation_source_udi", "source_udi"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -79,7 +77,6 @@ class Observation(Base):
     )
     numeric_value: Mapped[float | None] = mapped_column(Float)
     text_value: Mapped[str | None] = mapped_column(String)
-    source_udi: Mapped[int | None] = mapped_column(Integer)
     parameter: Mapped[Parameter] = relationship(back_populates="observations")
 
     @property

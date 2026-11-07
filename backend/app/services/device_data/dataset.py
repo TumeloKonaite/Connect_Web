@@ -43,11 +43,6 @@ def _validate_observation(observation: Any, data_type: str) -> datetime:
             raise ValueError("numeric parameter requires a finite numeric_value only")
     elif not isinstance(text, str) or numeric is not None:
         raise ValueError("text parameter requires text_value only")
-    source_udi = observation.get("source_udi")
-    if source_udi is not None and (
-        not isinstance(source_udi, int) or isinstance(source_udi, bool) or source_udi <= 0
-    ):
-        raise ValueError("source_udi must be a positive integer")
     return timestamp
 
 
@@ -156,7 +151,6 @@ def import_dataset(payload: dict[str, Any], session: Session) -> dict[str, Any]:
                         elif parameter.data_type != dtype:
                             raise ValueError(f"parameter type conflict for {pname}")
                         existing = list(session.scalars(select(Observation).where(Observation.parameter_id == parameter.id)))
-                        source_ids = {o.source_udi for o in existing if o.source_udi is not None}
                         by_time = {_utc_timestamp(o.observed_at): o for o in existing}
                         previous = None
                         for observation_index, o_data in enumerate(observations):
@@ -166,19 +160,16 @@ def import_dataset(payload: dict[str, Any], session: Session) -> dict[str, Any]:
                                 if previous is not None and observed_at < previous:
                                     raise ValueError("observations must be chronological")
                                 previous = observed_at
-                                source_udi = o_data.get("source_udi")
                                 timestamp_key = _utc_timestamp(observed_at)
-                                duplicate = source_udi in source_ids if source_udi is not None else timestamp_key in by_time
-                                if duplicate:
+                                if timestamp_key in by_time:
                                     counts["rows_skipped"] += 1
                                     continue
                                 observation = Observation(parameter_id=parameter.id, observed_at=observed_at,
-                                    numeric_value=o_data.get("numeric_value"), text_value=o_data.get("text_value"), source_udi=source_udi)
+                                    numeric_value=o_data.get("numeric_value"), text_value=o_data.get("text_value"))
                                 session.add(observation)
                                 session.flush()
                                 counts["observations_created"] += 1
                                 valid_device_rows += 1
-                                if source_udi is not None: source_ids.add(source_udi)
                                 by_time[timestamp_key] = observation
                             except ValueError as exc:
                                 counts["rows_rejected"] += 1

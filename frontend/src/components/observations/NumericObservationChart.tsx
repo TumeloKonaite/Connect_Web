@@ -147,9 +147,6 @@ export function NumericObservationChart({
               {parameterLabel}: {formatNumericValue(activePoint.value)}
               {unitSuffix}
             </strong>
-            {activePoint.item.source_udi !== null && (
-              <span className="tooltip-udi">UDI #{activePoint.item.source_udi}</span>
-            )}
           </div>
         ) : (
           <div className="chart-tooltip-banner">

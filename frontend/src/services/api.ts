@@ -6,6 +6,15 @@ const configuredApiBase = ((import.meta.env?.VITE_API_BASE_URL as string | undef
 const apiBaseUrl = configuredApiBase.replace(/\/api$/, '')
 
 type AuthUser = { id: number; email: string; is_active: boolean }
+export interface DatasetImportResult {
+  devices_created: number
+  parameters_created: number
+  observations_created: number
+  rows_imported: number
+  rows_skipped: number
+  rows_rejected: number
+  errors: string[]
+}
 let accessToken: string | null = null
 let onUnauthorized: (() => void) | null = null
 
@@ -16,7 +25,9 @@ async function request<T>(
   path: string,
   options: { signal?: AbortSignal; method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  let response: Response
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
     method: options.method ?? 'GET',
     headers: {
       Accept: 'application/json',
@@ -25,21 +36,24 @@ async function request<T>(
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
     signal: options.signal,
-  })
+    })
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === 'AbortError') throw reason
+    throw new Error('The service is unavailable. Check your connection and try again.')
+  }
 
   if (!response.ok) {
     if (response.status === 401 && path !== '/api/auth/login') {
       accessToken = null
       onUnauthorized?.()
     }
-    let message = `Request failed (${response.status} ${response.statusText})`
-    try {
-      const payload = (await response.json()) as { detail?: unknown }
-      if (typeof payload.detail === 'string') message = payload.detail
-      else if (Array.isArray(payload.detail)) {
-        message = payload.detail.map((item) => typeof item === 'object' && item && 'msg' in item ? String(item.msg) : String(item)).join('; ')
-      }
-    } catch { /* Keep the HTTP status message when the response has no JSON body. */ }
+    const message = response.status === 401
+      ? 'Your session has expired. Could not validate credentials. Please sign in again.'
+      : response.status >= 500
+        ? 'The service is temporarily unavailable. Please try again.'
+        : response.status === 404
+          ? 'The requested data is no longer available. Refresh your selection and try again.'
+          : 'We couldn’t complete that request. Check your selections and try again.'
     throw new Error(message)
   }
 
@@ -48,15 +62,24 @@ async function request<T>(
 }
 
 export const api = {
+  importDataset: (dataset: { devices: unknown[] }) =>
+    request<DatasetImportResult>('/api/devices/import', { method: 'POST', body: dataset }),
   login: async (email: string, password: string) => {
     const body = new URLSearchParams({ username: email, password })
-    const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
-      method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body,
-    })
+    let response: Response
+    try {
+      response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+        method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+      })
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') throw reason
+      throw new Error('Unable to connect to the service. Check your connection and try again.')
+    }
     if (!response.ok) {
-      let message = 'Unable to log in. Check your email and password.'
-      try { const payload = (await response.json()) as { detail?: unknown }; if (typeof payload.detail === 'string') message = payload.detail } catch { /* use fallback */ }
-      throw new Error(message)
+      if (response.status === 401 || response.status === 400) {
+        throw new Error('Incorrect email or password. Check your details and try again.')
+      }
+      throw new Error('Unable to sign in right now. Please try again.')
     }
     return (await response.json()) as { access_token: string; token_type: string }
   },

@@ -116,7 +116,6 @@
   <circle cx="432" cy="199" r="4" fill="#1b7657"/>
   <text x="444" y="203" class="tick">Jan 01, 2025, 01:00</text>
   <text x="572" y="203" class="chip-v">·  Air Temperature: 298.6 K</text>
-  <text x="1018" y="203" class="pill-num-t">UDI #13</text>
 
   <!-- SVG Plot -->
   <line x1="476" y1="245" x2="1058" y2="245" class="grid"/>

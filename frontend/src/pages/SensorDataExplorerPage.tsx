@@ -5,6 +5,7 @@ import {
   type ObservationQueryContext,
 } from '../components/observations/observationFormatters'
 import { api } from '../services/api'
+import { csvToDataset } from '../lib/csvDataset'
 import type { DeviceParameter, MonitoringDevice, Observation } from '../types/api'
 
 const PAGE_SIZE = 100
@@ -42,27 +43,60 @@ export function SensorDataExplorerPage() {
   const [minimum, setMinimum] = useState('')
   const [maximum, setMaximum] = useState('')
   const [validation, setValidation] = useState<Record<string, string>>({})
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [csvLoading, setCsvLoading] = useState(false)
+  const [csvError, setCsvError] = useState('')
+  const [csvResult, setCsvResult] = useState('')
   const requestId = useRef(0)
   const devicesRequest = useRef<AbortController | null>(null)
   const parametersRequest = useRef<AbortController | null>(null)
   const observationsRequest = useRef<AbortController | null>(null)
 
-  useEffect(() => {
+  function loadDevices() {
+    devicesRequest.current?.abort()
     const controller = new AbortController()
     devicesRequest.current = controller
     setDevicesLoading(true)
-    api
-      .getDevices(controller.signal)
-      .then(setDevices)
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted) {
-          setDeviceError(reason instanceof Error ? reason.message : 'Unable to load devices.')
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setDevicesLoading(false)
-      })
-    return () => controller.abort()
+    setDeviceError('')
+    api.getDevices(controller.signal).then(setDevices).catch((reason: unknown) => {
+      if (!controller.signal.aborted) setDeviceError(reason instanceof Error ? reason.message : 'Unable to load devices. Please try again.')
+    }).finally(() => { if (!controller.signal.aborted) setDevicesLoading(false) })
+  }
+
+  function loadParameters(selected: MonitoringDevice) {
+    parametersRequest.current?.abort()
+    const controller = new AbortController()
+    parametersRequest.current = controller
+    setParametersLoading(true)
+    setParameterError('')
+    api.getDevice(selected.device_uid, controller.signal).then((detail) => setParameters(detail.parameters)).catch((reason: unknown) => {
+      if (!controller.signal.aborted) setParameterError(reason instanceof Error ? reason.message : 'Unable to load parameters. Please try again.')
+    }).finally(() => { if (!controller.signal.aborted) setParametersLoading(false) })
+  }
+
+  async function uploadCsv(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!csvFile || csvLoading) return
+    setCsvError('')
+    setCsvResult('')
+    setCsvLoading(true)
+    try {
+      const dataset = csvToDataset(await csvFile.text())
+      const result = await api.importDataset(dataset)
+      setCsvResult(`Import complete: ${result.rows_imported} rows imported, ${result.rows_skipped} skipped, ${result.rows_rejected} rejected.`)
+      if (result.errors.length) setCsvError(result.errors.slice(0, 3).join(' '))
+      setCsvFile(null)
+      loadDevices()
+    } catch (reason) {
+      setCsvError(reason instanceof Error ? reason.message : 'Unable to import this CSV. Check the file and try again.')
+    } finally {
+      setCsvLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDevices()
+    return () => devicesRequest.current?.abort()
   }, [])
 
   useEffect(
@@ -93,20 +127,7 @@ export function SensorDataExplorerPage() {
     setMaximum('')
     setValidation({})
     if (!selected) return
-    const controller = new AbortController()
-    parametersRequest.current = controller
-    setParametersLoading(true)
-    api
-      .getDevice(selected.device_uid, controller.signal)
-      .then((detail) => setParameters(detail.parameters))
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted) {
-          setParameterError(reason instanceof Error ? reason.message : 'Unable to load parameters.')
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setParametersLoading(false)
-      })
+    loadParameters(selected)
   }
 
   function changeParameter(name: string) {
@@ -180,7 +201,7 @@ export function SensorDataExplorerPage() {
       ...(parameter.data_type === 'numeric' && max !== undefined ? { maximum: max } : {}),
     }
     setQuery(activeQuery)
-    setObservations(null)
+    // Keep existing results visible while a new query is in flight.
     setPageOffset(0)
     setHasMore(false)
     setError('')
@@ -224,7 +245,7 @@ export function SensorDataExplorerPage() {
     const controller = new AbortController()
     observationsRequest.current = controller
     const currentRequest = ++requestId.current
-    setObservations(null)
+    // Keep the current page visible until the next page arrives.
     setObservationsLoading(true)
     setError('')
     try {
@@ -276,6 +297,20 @@ export function SensorDataExplorerPage() {
         </div>
       </section>
 
+      <details className="csv-import-panel">
+        <summary>Import observations from CSV</summary>
+        <p>Upload a CSV with one observation per row. Required columns: <code>device_uid, device_name, device_description, parameter_name, data_type, unit, observed_at, numeric_value, text_value</code>. The importer also accepts <code>name, description, parameter</code> in place of the corresponding *_name columns. Use ISO timestamps with a timezone and leave the unused value column blank.</p>
+        <form className="csv-import-form" onSubmit={uploadCsv}>
+          <label htmlFor="csv-dataset">CSV file</label>
+          <input id="csv-dataset" type="file" accept=".csv,text/csv" onChange={(event) => { setCsvFile(event.target.files?.[0] ?? null); setCsvError(''); setCsvResult('') }} />
+          <button className="primary-button" type="submit" disabled={!csvFile || csvLoading}>
+            {csvLoading ? <><span className="button-spinner" /> Importing…</> : 'Upload CSV'}
+          </button>
+        </form>
+        {csvError && <p className="csv-feedback csv-feedback--error" role="alert">{csvError}</p>}
+        {csvResult && <p className="csv-feedback" role="status">{csvResult}</p>}
+      </details>
+
       <div className="explorer-layout">
         <form className="explorer-form" onSubmit={submit} noValidate>
           <div className="form-heading">
@@ -304,9 +339,7 @@ export function SensorDataExplorerPage() {
                 ))}
               </select>
               {deviceError && (
-                <span className="field-error" role="alert">
-                  {deviceError}
-                </span>
+                <span className="field-error" role="alert">{deviceError} <button type="button" className="inline-retry" onClick={loadDevices}>Retry</button></span>
               )}
               {!devicesLoading && !deviceError && devices.length === 0 && (
                 <span className="field-hint">No monitoring devices are available yet.</span>
@@ -344,9 +377,7 @@ export function SensorDataExplorerPage() {
                 ))}
               </select>
               {parameterError && (
-                <span className="field-error" role="alert">
-                  {parameterError}
-                </span>
+                <span className="field-error" role="alert">{parameterError} <button type="button" className="inline-retry" onClick={() => device && loadParameters(device)}>Retry</button></span>
               )}
               {device && !parametersLoading && !parameterError && parameters.length === 0 && (
                 <span className="field-hint">This device has no configured parameters.</span>
