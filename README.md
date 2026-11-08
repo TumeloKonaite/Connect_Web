@@ -48,7 +48,9 @@ Clone the repository and create a local environment file. Set private values for
 git clone <repository-url> Connect_Web
 cd Connect_Web
 cp .env.example .env
-# Edit .env to set private POSTGRES_PASSWORD and JWT_SECRET_KEY values.
+# Generate a key, then set JWT_SECRET_KEY to its output in .env.
+openssl rand -hex 32
+# Also replace POSTGRES_PASSWORD in .env with a private value.
 make up
 make seed-devices
 make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='demo-password'
@@ -66,7 +68,13 @@ docker compose exec -T backend uv run --no-sync python -m app.scripts.device_dat
 docker compose exec -T -e DEMO_USER_EMAIL=demo@example.com -e DEMO_USER_PASSWORD=demo-password backend uv run --no-sync python -m app.scripts.create_demo_user
 ```
 
-In PowerShell, copy the environment template with `Copy-Item .env.example .env` instead of `cp .env.example .env`.
+In PowerShell, copy the environment template with `Copy-Item .env.example .env` instead of `cp .env.example .env`. Generate the JWT key with:
+
+```powershell
+[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLower()
+```
+
+Paste the generated value into `JWT_SECRET_KEY` in `.env`, and replace `POSTGRES_PASSWORD` with a private value before starting the stack.
 
 **Bash (Linux/macOS):**
 
