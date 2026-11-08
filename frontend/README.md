@@ -26,7 +26,8 @@ From the frontend directory:
 ```sh
 cd frontend
 npm ci
-cp .env.example .env.local
+Copy-Item .env.example .env.local # PowerShell
+# or: cp .env.example .env.local # Bash
 ```
 
 The provided `frontend/.env.example` sets `VITE_API_BASE_URL=http://localhost:8000`. Change that value if your backend listens elsewhere. This variable is included in the browser build, so use a public API URL and never put secrets in it.
@@ -41,7 +42,7 @@ npm run dev
 
 Open <http://localhost:5173>. Vite serves the React app with hot reload. If the backend is unavailable, the page can render but device and observation requests will show an API error until a service is reachable.
 
-To use the integrated stack, run `make up` from the repository root instead. Compose starts PostgreSQL, applies migrations through the backend startup command, and starts both frontend and backend services.
+To use the integrated stack, run `docker compose up --build -d` from the repository root instead. Compose starts PostgreSQL, applies migrations through the backend startup command, and starts both frontend and backend services.
 
 ## Frontend commands
 

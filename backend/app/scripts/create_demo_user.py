@@ -1,4 +1,4 @@
-"""Create the configured demo user once, storing only its password hash."""
+"""Create or reset the configured local demo user, storing only its password hash."""
 
 import os
 import sys
@@ -21,13 +21,15 @@ def main() -> int:
         return 2
 
     with SessionLocal() as db:
-        existing = db.scalar(select(User.id).where(User.email == email))
+        existing = db.scalar(select(User).where(User.email == email))
         if existing is not None:
-            print(f"Demo user already exists: {email}")
-            return 0
-        db.add(User(email=email, hashed_password=hash_password(password)))
+            existing.hashed_password = hash_password(password)
+            status = "Reset password for demo user"
+        else:
+            db.add(User(email=email, hashed_password=hash_password(password)))
+            status = "Created demo user"
         db.commit()
-    print(f"Created demo user: {email}")
+    print(f"{status}: {email}")
     return 0
 
 
