@@ -2,6 +2,8 @@
 
 Connect_Web is a factory sensor data explorer built for the DataProphet software engineering assessment. It lets a user sign in, choose a monitoring device and sensor, filter timestamped readings, and view numeric data as charts or text data as a table. The backend provides authenticated device and observation APIs, and the supplied synthetic dataset gives the application a realistic week of demo readings.
 
+`#React` `#FastAPI` `#PostgreSQL` `#TimeSeries` `#DockerCompose`
+
 ## Work summary
 
 I built this application to let users securely explore factory sensor readings by device, parameter, time range, and numeric value range. I chose FastAPI with PostgreSQL for a structured API and persistent storage, and React with TypeScript for a clear interface that renders numeric readings as charts and text readings as tables. I added Docker Compose, dataset import, and tests to make the project easier to run and review; this keeps the setup repeatable while keeping the implementation focused on the assessment’s core workflow.
