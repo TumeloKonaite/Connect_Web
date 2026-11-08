@@ -4,7 +4,7 @@ COMPOSE = docker compose -f $(CURDIR)/docker-compose.yml -p $(COMPOSE_PROJECT_NA
 
 .DEFAULT_GOAL := help
 .PHONY: help build up down restart logs ps backend-logs frontend-logs db-logs \
-	backend-shell frontend-shell test test-backend test-frontend seed-devices clean clean-data
+	backend-shell frontend-shell test test-backend test-frontend seed-devices demo clean clean-data
 
 
 help: ## Show this help message
@@ -52,6 +52,12 @@ test-backend: ## Run backend pytest suite in a temporary test container
 
 seed-devices: ## Generate and import the demo device time-series dataset (idempotent)
 	@$(COMPOSE) exec backend uv run --no-sync python -m app.scripts.device_dataset || { echo "Error: Could not import demo device observations. Start services with 'make up' and check migrations and database connectivity." >&2; exit 1; }
+
+demo: ## Start the stack, load demo readings, and reset the predictable local demo account
+	@$(MAKE) --no-print-directory up
+	@$(COMPOSE) exec -T backend uv run --no-sync python -m app.scripts.device_dataset || { echo "Error: Could not import demo device observations. Check 'make logs'." >&2; exit 1; }
+	@$(COMPOSE) exec -T -e DEMO_USER_EMAIL=demo@example.com -e DEMO_USER_PASSWORD=demo-password backend uv run --no-sync python -m app.scripts.create_demo_user || { echo "Error: Could not create demo user. Check 'make logs'." >&2; exit 1; }
+	@echo "Demo ready: open http://localhost:5173 and sign in as demo@example.com / demo-password"
 
 create-demo-user: ## Create a demo account using DEMO_USER_EMAIL and DEMO_USER_PASSWORD
 	@test -n "$(DEMO_USER_EMAIL)" -a -n "$(DEMO_USER_PASSWORD)" || { echo "Set DEMO_USER_EMAIL and DEMO_USER_PASSWORD, for example: make create-demo-user DEMO_USER_EMAIL=demo@example.com DEMO_USER_PASSWORD='your-password'" >&2; exit 2; }
